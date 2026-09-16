@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+
+{% block title %}Page Not Found (404) | {{ platform_name }}{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="min-height: 70vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 40px 20px;">
+    <div class="glass-card" style="max-width: 480px; padding: 48px 32px;">
+        <div style="font-size: 56px; font-weight: 800; font-family: monospace; color: #38bdf8; margin-bottom: 12px;">404</div>
+        <h1 style="font-size: 22px; font-weight: 700; margin: 0 0 8px;">Resource Not Found</h1>
+        <p style="color: var(--text-muted); font-size: 14px; margin: 0 0 24px;">The requested server endpoint, dashboard route, or file path does not exist on this host node.</p>
+        <a href="/" class="btn-solid-white" style="padding: 10px 24px;">Return Home →</a>
+    </div>
+</div>
+{% endblock %}

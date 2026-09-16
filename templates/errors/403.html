@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+
+{% block title %}Access Denied (403) | {{ platform_name }}{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="min-height: 70vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 40px 20px;">
+    <div class="glass-card" style="max-width: 480px; padding: 48px 32px; border-color: rgba(245, 158, 11, 0.3);">
+        <div style="font-size: 56px; font-weight: 800; font-family: monospace; color: #fbbf24; margin-bottom: 12px;">403</div>
+        <h1 style="font-size: 22px; font-weight: 700; margin: 0 0 8px;">Unauthorized Access</h1>
+        <p style="color: var(--text-muted); font-size: 14px; margin: 0 0 24px;">You do not possess the required role permissions or resource ownership to access this node.</p>
+        <a href="/dashboard" class="btn-solid-white" style="padding: 10px 24px;">Return to Dashboard →</a>
+    </div>
+</div>
+{% endblock %}

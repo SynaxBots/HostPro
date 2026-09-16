@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+
+{% block title %}System Error (500) | {{ platform_name }}{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="min-height: 70vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 40px 20px;">
+    <div class="glass-card" style="max-width: 480px; padding: 48px 32px; border-color: rgba(239, 68, 68, 0.3);">
+        <div style="font-size: 56px; font-weight: 800; font-family: monospace; color: #f87171; margin-bottom: 12px;">500</div>
+        <h1 style="font-size: 22px; font-weight: 700; margin: 0 0 8px;">Internal Server Error</h1>
+        <p style="color: var(--text-muted); font-size: 14px; margin: 0 0 24px;">An internal processing exception occurred. System operators have been alerted in the audit journal.</p>
+        <a href="/dashboard" class="btn-solid-white" style="padding: 10px 24px;">Back to Dashboard →</a>
+    </div>
+</div>
+{% endblock %}

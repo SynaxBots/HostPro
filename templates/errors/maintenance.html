@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+
+{% block title %}System Maintenance | {{ platform_name }}{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="min-height: 70vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 40px 20px;">
+    <div class="glass-card" style="max-width: 520px; padding: 48px 36px; border-color: rgba(56, 189, 248, 0.3);">
+        <div style="font-size: 48px; margin-bottom: 16px;">🛠️</div>
+        <h1 style="font-size: 24px; font-weight: 700; margin: 0 0 8px;">Scheduled Platform Maintenance</h1>
+        <p style="color: var(--text-muted); font-size: 14.5px; line-height: 1.6; margin: 0 0 24px;">
+            The platform is currently undergoing scheduled infrastructure upgrades. Your running Python processes continue to execute without disruption.
+        </p>
+        <div style="font-size: 12px; color: var(--text-dim);">
+            Administrators may still <a href="/auth/login" style="color: #38bdf8;">Sign In</a> to access host telemetry.
+        </div>
+    </div>
+</div>
+{% endblock %}
