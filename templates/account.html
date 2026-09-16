@@ -1,0 +1,150 @@
+{% extends "layout.html" %}
+
+{% block title %}Account Settings | {{ platform_name }}{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="padding: 40px 24px; max-width: 820px;">
+    <!-- Page Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 32px;">
+        <div>
+            <h1 style="font-size: 26px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.02em;">Account Settings</h1>
+            <p style="color: var(--text-muted); font-size: 14px; margin: 0;">Manage your profile details, authentication credentials, and security preferences.</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <a href="/billing" class="btn-glass" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                <span>Wallet (₹{{ "%.2f"|format(current_user.wallet_balance or 0.0) }})</span>
+            </a>
+            <a href="/dashboard" class="btn-solid-white" style="font-size: 13px; padding: 7px 16px;">
+                Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        <!-- Profile Overview Card -->
+        <div class="glass-card" style="padding: 28px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: #fff;">
+                        {{ (current_user.username[:1] or 'U')|upper }}
+                    </div>
+                    <div>
+                        <div style="font-size: 17px; font-weight: 700; color: #fff;">{{ current_user.username }}</div>
+                        <div style="font-size: 13px; color: var(--text-muted);">{{ current_user.email }}</div>
+                    </div>
+                </div>
+                <div>
+                    <span class="status-badge status-online">{{ current_user.role|capitalize }}</span>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; font-size: 13.5px; border-top: 1px solid var(--border-subtle); padding-top: 20px;">
+                <div>
+                    <span style="color: var(--text-muted); display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">User ID</span>
+                    <strong style="color: #fff; font-family: monospace;">#{{ current_user.id }}</strong>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted); display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">Authentication</span>
+                    {% if current_user.telegram_id %}
+                        <span style="display: inline-flex; align-items: center; gap: 5px; color: #38bdf8; font-weight: 500;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg>
+                            Telegram (ID: {{ current_user.telegram_id }})
+                        </span>
+                    {% else %}
+                        <strong style="color: #fff;">Standard Password</strong>
+                    {% endif %}
+                </div>
+                <div>
+                    <span style="color: var(--text-muted); display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">Account Status</span>
+                    <span style="color: var(--accent-green); font-weight: 600;">Active</span>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted); display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">Member Since</span>
+                    <strong style="color: #fff;">
+                        {% if current_user.created_at %}
+                            {{ (current_user.created_at|string)[:10] }}
+                        {% else %}
+                            Active
+                        {% endif %}
+                    </strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Profile Form -->
+        <form method="POST" action="/account/update-profile" class="glass-card" style="padding: 28px; display: flex; flex-direction: column; gap: 18px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="font-size: 16px; font-weight: 700; margin: 0;">Profile Details</h2>
+                <span style="font-size: 12px; color: var(--text-muted);">Change your public handle or contact email</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+                <div>
+                    <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Username</label>
+                    <input type="text" name="username" class="input-dark" value="{{ current_user.username or '' }}" minlength="3" maxlength="32" required pattern="[a-zA-Z0-9_-]+">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Email Address</label>
+                    <input type="email" name="email" class="input-dark" value="{{ current_user.email or '' }}" placeholder="your-email@domain.com">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+                <button type="submit" class="btn-solid-white" style="padding: 9px 20px; font-size: 13.5px;">Save Profile</button>
+            </div>
+        </form>
+
+        <!-- Change / Set Password Card -->
+        <form method="POST" action="/account/change-password" class="glass-card" style="padding: 28px; display: flex; flex-direction: column; gap: 18px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div>
+                <h2 style="font-size: 16px; font-weight: 700; margin: 0 0 4px;">Security & Password</h2>
+                {% if current_user.telegram_id %}
+                    <p style="color: var(--text-muted); font-size: 13px; margin: 0;">
+                        You signed up via Telegram. You can set a password below to also enable standard username and password login.
+                        (Leave <em>Current Password</em> blank if setting your password for the first time.)
+                    </p>
+                {% else %}
+                    <p style="color: var(--text-muted); font-size: 13px; margin: 0;">Regularly updating your password strengthens server access security.</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">
+                    Current Password
+                    {% if current_user.telegram_id %}
+                        <span style="color: var(--text-dim); font-size: 12px; font-weight: normal;">(Optional for first-time Telegram users)</span>
+                    {% endif %}
+                </label>
+                <input type="password" name="current_password" class="input-dark" placeholder="••••••••" {% if not current_user.telegram_id %}required{% endif %}>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+                <div>
+                    <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">New Password</label>
+                    <input type="password" name="new_password" class="input-dark" placeholder="Min. 8 characters" minlength="8" required>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Confirm New Password</label>
+                    <input type="password" name="confirm_password" class="input-dark" placeholder="••••••••" minlength="8" required>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+                <button type="submit" class="btn-solid-white" style="padding: 9px 20px; font-size: 13.5px;">Update Password</button>
+            </div>
+        </form>
+
+        <!-- Quick Help & Support Card -->
+        <div class="glass-card" style="padding: 20px 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-color: rgba(255,255,255,0.06);">
+            <div>
+                <div style="font-weight: 600; font-size: 14px; color: #fff;">Need account assistance or custom server limits?</div>
+                <div style="color: var(--text-muted); font-size: 13px;">Our engineering team is available 24/7 via ticket support.</div>
+            </div>
+            <a href="/support" class="pill-btn" style="font-size: 13px; padding: 7px 16px;">Open Support Ticket</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

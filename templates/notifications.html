@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+
+{% block title %}Notifications | {{ platform_name }}{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="padding: 40px 24px; max-width: 840px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px;">
+        <div>
+            <h1 style="font-size: 26px; font-weight: 700; margin: 0 0 4px;">Notifications & Alerts</h1>
+            <p style="color: var(--text-muted); font-size: 14px; margin: 0;">Stay informed about server events, crashes, and subscription milestones.</p>
+        </div>
+        {% if notifications %}
+            <form method="POST" action="/notifications/mark-read" style="margin: 0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn-glass" style="padding: 6px 14px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span>Mark All as Read</span>
+                </button>
+            </form>
+        {% endif %}
+    </div>
+
+    <div class="glass-card" style="padding: 0; overflow: hidden;">
+        {% if notifications %}
+            <div style="display: flex; flex-direction: column;">
+                {% for n in notifications %}
+                    <div style="padding: 18px 24px; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; align-items: flex-start; gap: 14px; background: {% if not n.is_read %}rgba(255,255,255,0.02){% else %}transparent{% endif %};">
+                        <div style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+                            {% if n.type == 'error' %}background: var(--accent-red-bg); color: #f87171;
+                            {% elif n.type == 'success' %}background: var(--accent-green-bg); color: #4ade80;
+                            {% elif n.type == 'warning' %}background: var(--accent-amber-bg); color: #fbbf24;
+                            {% else %}background: var(--accent-blue-bg); color: #38bdf8;{% endif %}">
+                            {% if n.type == 'error' %}
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                            {% elif n.type == 'success' %}
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            {% elif n.type == 'warning' %}
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            {% else %}
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                            {% endif %}
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                <div style="font-weight: 600; font-size: 14px; color: #ffffff;">{{ n.title }}</div>
+                                <div style="color: var(--text-dim); font-size: 12px;">{{ n.created_at }}</div>
+                            </div>
+                            <div style="color: var(--text-muted); font-size: 13.5px; margin-top: 4px; line-height: 1.5;">{{ n.message }}</div>
+                            {% if n.server_name %}
+                                <div style="margin-top: 6px; font-size: 12px; color: #38bdf8;">Server: {{ n.server_name }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div style="padding: 60px 20px; text-align: center; color: var(--text-dim);">
+                <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: var(--text-muted);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                </div>
+                <div style="font-size: 16px; color: #fff; font-weight: 600; margin-bottom: 4px;">No notifications yet</div>
+                <div style="font-size: 13px;">System events and server health alerts will appear here.</div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

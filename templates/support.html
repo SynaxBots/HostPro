@@ -1,0 +1,83 @@
+{% extends "layout.html" %}
+
+{% block title %}Support & Helpdesk | {{ platform_name }}{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="padding: 40px 24px; max-width: 840px;">
+    <div style="margin-bottom: 28px;">
+        <h1 style="font-size: 26px; font-weight: 700; margin: 0 0 4px;">Technical Support & Helpdesk</h1>
+        <p style="color: var(--text-muted); font-size: 14px; margin: 0;">Submit an inquiry or report server issues directly to our engineering team.</p>
+    </div>
+
+    <!-- Submit Ticket Card -->
+    <form method="POST" action="/support/create" class="glass-card" style="padding: 28px; display: flex; flex-direction: column; gap: 18px; margin-bottom: 36px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h2 style="font-size: 17px; font-weight: 700; margin: 0;">Open a New Ticket</h2>
+
+        <div>
+            <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Subject / Issue Summary</label>
+            <input type="text" name="subject" class="input-dark" placeholder="e.g. Port binding question on Flask worker" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+            <div>
+                <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Related Server (Optional)</label>
+                <select name="server_id" class="input-dark">
+                    <option value="">None / General Inquiry</option>
+                    {% for s in servers %}
+                        <option value="{{ s.id }}">{{ s.name }} ({{ s.subdomain }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Priority Level</label>
+                <select name="priority" class="input-dark">
+                    <option value="low">Low - General Question</option>
+                    <option value="medium" selected>Medium - Normal Issue</option>
+                    <option value="high">High - Server Down</option>
+                    <option value="critical">Critical - Outage</option>
+                </select>
+            </div>
+        </div>
+
+        <div>
+            <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Message / Error Details</label>
+            <textarea name="message" class="input-dark font-mono" rows="5" placeholder="Describe the behavior or paste error logs..." required></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" class="btn-solid-white" style="padding: 9px 22px;">Submit Ticket →</button>
+        </div>
+    </form>
+
+    <!-- Previous Tickets List -->
+    <h2 style="font-size: 18px; font-weight: 700; margin: 0 0 16px;">Ticket History ({{ tickets|length }})</h2>
+    <div class="glass-card" style="padding: 0; overflow: hidden;">
+        {% if tickets %}
+            <div style="display: flex; flex-direction: column;">
+                {% for t in tickets %}
+                    <div style="padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+                            <div style="font-weight: 600; font-size: 15px; color: #fff;">{{ t.subject }}</div>
+                            <span class="status-badge status-{{ 'running' if t.status == 'resolved' else 'starting' if t.status == 'in_progress' else 'stopped' }}">
+                                {{ t.status.replace('_', ' ') }}
+                            </span>
+                        </div>
+                        <p style="color: var(--text-muted); font-size: 13.5px; line-height: 1.5; margin: 0 0 12px;">{{ t.message }}</p>
+                        {% if t.admin_reply %}
+                            <div style="padding: 12px 16px; background: rgba(56, 189, 248, 0.05); border-left: 3px solid #38bdf8; border-radius: 4px; font-size: 13px; color: #e4e4e7;">
+                                <strong style="color: #38bdf8;">Admin Response:</strong> {{ t.admin_reply }}
+                            </div>
+                        {% endif %}
+                        <div style="font-size: 11.5px; color: var(--text-dim); margin-top: 10px;">Submitted on {{ t.created_at }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div style="padding: 40px 20px; text-align: center; color: var(--text-dim); font-size: 13px;">
+                No support tickets filed.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

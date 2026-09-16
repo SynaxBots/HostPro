@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+
+{% block title %}Hosting Plans & Pricing (INR) | {{ platform_name }}{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="padding: 48px 24px;">
+    <div style="text-align: center; max-width: 640px; margin: 0 auto 48px;">
+        <div style="color: var(--accent-green); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Pure INR Pricing</div>
+        <h1 style="font-size: 36px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 12px;">High-Performance Python Hosting Plans</h1>
+        <p style="color: var(--text-muted); font-size: 15px; margin: 0;">
+            Choose a dedicated Python capacity tier. All plans include automated port routing, unique subdomains, and 24/7 crash monitoring.
+        </p>
+    </div>
+
+    <!-- Pricing Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
+        {% for plan in plans %}
+            <div class="glass-card" style="padding: 36px 28px; display: flex; flex-direction: column; justify-content: space-between; {% if loop.index == 2 %}border-color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.05);{% endif %}">
+                <div>
+                    <h3 style="font-size: 20px; font-weight: 700; margin: 0 0 8px;">{{ plan.name }}</h3>
+                    <p style="color: var(--text-muted); font-size: 13.5px; line-height: 1.5; margin-bottom: 24px; min-height: 48px;">{{ plan.description }}</p>
+                    
+                    <div style="display: flex; align-items: baseline; gap: 4px; margin-bottom: 24px;">
+                        <span style="font-size: 40px; font-weight: 700; font-family: 'JetBrains Mono', monospace;">₹{{ "%.0f"|format(plan.price_inr) }}</span>
+                        <span style="color: var(--text-muted); font-size: 14px;">/ {{ plan.billing_days }} days</span>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13.5px; border-top: 1px solid var(--border-subtle); padding-top: 20px; margin-bottom: 28px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-muted);">RAM Allocation</span>
+                            <span style="font-weight: 600;">{{ plan.ram_mb }} MB</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-muted);">CPU Allocation</span>
+                            <span style="font-weight: 600;">{{ plan.cpu_cores }} Core</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-muted);">NVMe Storage</span>
+                            <span style="font-weight: 600;">{{ "%.1f"|format(plan.storage_mb / 1024) }} GB</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-muted);">Monthly Bandwidth</span>
+                            <span style="font-weight: 600;">{{ "%.0f"|format(plan.bandwidth_mb / 1024) }} GB</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--text-muted);">Max Hosting Instances</span>
+                            <span style="font-weight: 600; color: #38bdf8;">{{ plan.max_servers }} Server(s)</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: var(--text-muted);">Auto-Restart Support</span>
+                            <span style="color: var(--accent-green); display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <span>Included</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {% if current_user %}
+                    <form id="purchase-plan-form-{{ plan.id }}" method="POST" action="/billing/purchase-plan">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="plan_id" value="{{ plan.id }}">
+                        <button type="button" class="{% if loop.index == 2 %}btn-solid-white{% else %}btn-glass{% endif %}" style="width: 100%; text-align: center; padding: 11px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;" onclick="confirmPurchasePlan({{ plan.id }}, '{{ plan.name }}', {{ plan.price_inr }}, {{ plan.billing_days }})">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                            <span>Subscribe for ₹{{ "%.0f"|format(plan.price_inr) }}</span>
+                        </button>
+                    </form>
+                {% else %}
+                    <a href="/auth/register" class="btn-solid-white" style="width: 100%; text-align: center; padding: 11px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span>Get Started</span>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </a>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    function confirmPurchasePlan(planId, planName, price, days) {
+        showCustomConfirm({
+            title: `Subscribe to ${planName}`,
+            message: `Confirm purchasing <strong>${planName}</strong> for <strong>${days} days</strong> at <strong>₹${price.toFixed(2)}</strong>? The amount will be deducted directly from your INR wallet.`,
+            confirmText: `Subscribe for ₹${price.toFixed(2)}`,
+            onConfirm: () => {
+                document.getElementById(`purchase-plan-form-${planId}`).submit();
+            }
+        });
+    }
+</script>
+{% endblock %}

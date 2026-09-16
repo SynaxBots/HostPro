@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>{% block title %}{{ platform_name }}{% endblock %} | High-Performance Python Cloud</title>
+    <meta name="description" content="Deploy, orchestrate and run Python applications with isolated processes, custom subdomains, dedicated ports, and advanced web management.">
+    
+    <!-- Prevent White Flash on Load -->
+    <style>
+        html, body {
+            background-color: #000000 !important;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+    </style>
+
+    <!-- Google Fonts for Luxury Display & Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Platform Design System CSS -->
+    <style>
+        :root {
+            --bg-base: #000000;
+            --bg-card: rgba(255, 255, 255, 0.035);
+            --bg-card-hover: rgba(255, 255, 255, 0.06);
+            --border-subtle: rgba(255, 255, 255, 0.1);
+            --border-highlight: rgba(255, 255, 255, 0.2);
+            --text-main: #ffffff;
+            --text-muted: #9a9a9a;
+            --text-dim: #666666;
+            --accent-green: #22c55e;
+            --accent-green-bg: rgba(34, 197, 94, 0.15);
+            --accent-red: #ef4444;
+            --accent-red-bg: rgba(239, 68, 68, 0.15);
+            --accent-amber: #f59e0b;
+            --accent-amber-bg: rgba(245, 158, 11, 0.15);
+            --accent-blue: #38bdf8;
+            --accent-blue-bg: rgba(56, 189, 248, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Typography */
+        .font-serif {
+            font-family: 'Instrument Serif', Georgia, serif;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Glass Cards */
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+        .glass-card:hover {
+            border-color: var(--border-highlight);
+        }
+
+        /* Liquid Metal Navigation & Buttons */
+        .pill-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+            border: 1px solid var(--border-subtle);
+            color: #ffffff;
+            padding: 8px 18px;
+            border-radius: 9999px;
+            font-size: 13.5px;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .pill-btn:hover {
+            background: linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.05) 100%);
+            border-color: rgba(255,255,255,0.25);
+            box-shadow: 0 0 20px rgba(255,255,255,0.08);
+            transform: translateY(-1px);
+        }
+        .pill-btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-solid-white {
+            background: #ffffff;
+            color: #000000;
+            border: 1px solid #ffffff;
+            padding: 10px 22px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(255,255,255,0.15);
+        }
+        .btn-solid-white:hover {
+            background: #e4e4e7;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(255,255,255,0.25);
+        }
+
+        .btn-glass {
+            background: rgba(255,255,255,0.06);
+            color: #ffffff;
+            border: 1px solid var(--border-subtle);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-glass:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--border-highlight);
+        }
+
+        .btn-danger {
+            background: var(--accent-red-bg);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.25);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+        .status-running, .status-online, .status-active {
+            background: var(--accent-green-bg);
+            color: var(--accent-green);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        .status-stopped {
+            background: rgba(156, 163, 175, 0.15);
+            color: #9ca3af;
+            border: 1px solid rgba(156, 163, 175, 0.3);
+        }
+        .status-crashed, .status-error {
+            background: var(--accent-red-bg);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .status-starting, .status-stopping {
+            background: var(--accent-amber-bg);
+            color: var(--accent-amber);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        .status-suspended, .status-expired {
+            background: rgba(239, 68, 68, 0.1);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        /* Form Inputs */
+        .input-dark {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #ffffff;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .input-dark:focus {
+            border-color: #ffffff;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.1);
+        }
+        .input-dark::placeholder {
+            color: var(--text-dim);
+        }
+        select.input-dark option {
+            background: #121214;
+            color: #ffffff;
+        }
+
+        /* Toast Container */
+        #toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast-item {
+            pointer-events: auto;
+            background: #18181b;
+            border: 1px solid var(--border-subtle);
+            color: #ffffff;
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: toastEnter 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            max-width: 400px;
+        }
+        .toast-success { border-color: rgba(34, 197, 94, 0.4); }
+        .toast-error { border-color: rgba(239, 68, 68, 0.4); }
+        .toast-warning { border-color: rgba(245, 158, 11, 0.4); }
+        .toast-info { border-color: rgba(56, 189, 248, 0.4); }
+
+        @keyframes toastEnter {
+            from { opacity: 0; transform: translateY(12px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Modal Backdrop & Container */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
+            z-index: 9000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-content {
+            background: #121214;
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 28px;
+            max-width: 540px;
+            width: 100%;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.9);
+            animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes modalPop {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        /* Layout Grid Helpers */
+        .layout-container {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 0 24px;
+            width: 100%;
+        }
+
+        /* Header Navigation */
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+            height: 68px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Mobile Nav Drawer */
+        #mobile-drawer {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.95);
+            backdrop-filter: blur(24px);
+            z-index: 9999;
+            flex-direction: column;
+            padding: 32px 24px;
+        }
+        #mobile-drawer.open {
+            display: flex;
+        }
+
+        /* Progress Bars */
+        .progress-bar-bg {
+            background: rgba(255,255,255,0.06);
+            border-radius: 9999px;
+            height: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 9999px;
+            background: #ffffff;
+            transition: width 0.3s ease;
+        }
+        .fill-green { background: #22c55e; }
+        .fill-amber { background: #f59e0b; }
+        .fill-red { background: #ef4444; }
+
+        /* Tables */
+        .table-dark {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        .table-dark th {
+            text-align: left;
+            padding: 12px 16px;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .table-dark td {
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 14px;
+        }
+        .table-dark tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.15);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.3);
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Top Navigation Header -->
+    <header class="site-header">
+        <div class="layout-container" style="display: flex; align-items: center; justify-content: space-between;">
+            <!-- Brand Logo -->
+            <a href="/" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #ffffff;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="2" width="20" height="20" rx="6" fill="#ffffff"/>
+                    <path d="M7 8L12 12L7 16" stroke="#000000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M13 16H17" stroke="#000000" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+                <span style="font-weight: 700; font-size: 17px; letter-spacing: -0.02em;">{{ platform_name }}</span>
+            </a>
+
+            <!-- Desktop Navigation Links -->
+            <nav style="display: none;" class="desktop-nav">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <a href="/#features" class="pill-btn">Features</a>
+                    <a href="/plans" class="pill-btn">Plans</a>
+                    {% if current_user %}
+                        <a href="/dashboard" class="pill-btn">Dashboard</a>
+                        <a href="/billing" class="pill-btn">Wallet & Billing</a>
+                        <a href="/account" class="pill-btn">Account Settings</a>
+                        {% if current_user.role == 'admin' %}
+                            <a href="/admin" class="pill-btn" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                                <span>Admin</span>
+                            </a>
+                        {% endif %}
+                    {% else %}
+                        <a href="/#architecture" class="pill-btn">Architecture</a>
+                        <a href="/#faq" class="pill-btn">FAQ</a>
+                    {% endif %}
+                </div>
+            </nav>
+
+            <!-- User Auth Controls -->
+            <div style="display: none; align-items: center; gap: 12px;" class="desktop-auth">
+                {% if current_user %}
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <a href="/billing" style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-subtle); padding: 6px 12px; border-radius: 8px; text-decoration: none; color: #ffffff; font-size: 13px;">
+                            <span style="color: var(--accent-green); font-weight: 600;">₹{{ "%.2f"|format(current_user.wallet_balance or 0.0) }}</span>
+                        </a>
+                        <a href="/notifications" style="position: relative; text-decoration: none; color: var(--text-muted); padding: 8px;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                            {% if unread_notif_count and unread_notif_count > 0 %}
+                                <span style="position: absolute; top: 2px; right: 2px; background: #ef4444; color: #fff; font-size: 10px; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700;">{{ unread_notif_count }}</span>
+                            {% endif %}
+                        </a>
+                        <a href="/account" class="btn-glass" style="padding: 6px 14px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;" title="Account Settings">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <span>{{ current_user.username }}</span>
+                        </a>
+                        <a href="/auth/logout" class="btn-glass" style="padding: 6px 12px; font-size: 13px; color: #f87171;">Logout</a>
+                    </div>
+                {% else %}
+                    <a href="/auth/login" class="pill-btn">Sign In</a>
+                    <a href="/auth/register" class="btn-solid-white" style="padding: 7px 18px; font-size: 13.5px;">Get Started</a>
+                {% endif %}
+            </div>
+
+            <!-- Mobile Hamburger Button -->
+            <button id="mobile-toggle" aria-label="Open Navigation Menu" style="display: flex; background: none; border: 1px solid var(--border-subtle); color: #fff; padding: 8px; border-radius: 8px; cursor: pointer;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Drawer Overlay -->
+    <div id="mobile-drawer" role="dialog" aria-modal="true" aria-label="Mobile Navigation">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
+            <div style="font-weight: 700; font-size: 18px;">{{ platform_name }}</div>
+            <button id="mobile-close" aria-label="Close Menu" style="background: none; border: none; color: #fff; padding: 8px; cursor: pointer;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 16px; font-size: 18px;">
+            <a href="/" style="color: #fff; text-decoration: none; padding: 8px 0;">Home</a>
+            <a href="/plans" style="color: #fff; text-decoration: none; padding: 8px 0;">Plans & Pricing</a>
+            {% if current_user %}
+                <a href="/dashboard" style="color: #fff; text-decoration: none; padding: 8px 0;">My Servers</a>
+                <a href="/billing" style="color: #fff; text-decoration: none; padding: 8px 0;">Wallet (₹{{ "%.2f"|format(current_user.wallet_balance or 0.0) }})</a>
+                <a href="/notifications" style="color: #fff; text-decoration: none; padding: 8px 0;">Notifications ({{ unread_notif_count or 0 }})</a>
+                <a href="/account" style="color: #fff; text-decoration: none; padding: 8px 0;">Account Settings</a>
+                {% if current_user.role == 'admin' %}
+                    <a href="/admin" style="color: #fbbf24; text-decoration: none; padding: 8px 0; display: flex; align-items: center; gap: 8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                        <span>Admin Control Center</span>
+                    </a>
+                {% endif %}
+                <a href="/auth/logout" style="color: #ef4444; text-decoration: none; padding: 8px 0;">Sign Out</a>
+            {% else %}
+                <a href="/auth/login" class="btn-glass" style="width: 100%; text-align: center; margin-top: 16px;">Sign In</a>
+                <a href="/auth/register" class="btn-solid-white" style="width: 100%; text-align: center;">Create Free Account</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Responsive Style Triggers -->
+    <style>
+        @media (min-width: 768px) {
+            .desktop-nav { display: block !important; }
+            .desktop-auth { display: flex !important; }
+            #mobile-toggle { display: none !important; }
+        }
+    </style>
+
+    <!-- Global Flash Messages / Toasts -->
+    <div id="toast-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="toast-item toast-{{ category }}">
+                        {% if category == 'success' %}
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        {% elif category == 'error' %}
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                        {% else %}
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                        {% endif %}
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Main Content Injection -->
+    <main style="flex: 1;">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Global Footer -->
+    <footer style="border-top: 1px solid var(--border-subtle); padding: 48px 0 32px; background: #000000; margin-top: 80px;">
+        <div class="layout-container" style="display: flex; flex-direction: column; gap: 32px;">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px;">
+                <div>
+                    <div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">{{ platform_name }}</div>
+                    <div style="color: var(--text-muted); font-size: 13px;">Dedicated Python process management, isolated environments & INR billing.</div>
+                </div>
+                <div style="display: flex; gap: 16px; font-size: 13px;">
+                    <a href="/plans" style="color: var(--text-muted); text-decoration: none;">Plans</a>
+                    <a href="/support" style="color: var(--text-muted); text-decoration: none;">Support</a>
+                    <a href="/#architecture" style="color: var(--text-muted); text-decoration: none;">Architecture</a>
+                </div>
+            </div>
+            <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 20px; display: flex; justify-content: space-between; align-items: center; color: var(--text-dim); font-size: 12px;">
+                <div>&copy; 2026 {{ platform_name }}. All rights reserved. Prices strictly in INR (₹).</div>
+                <div>VPS Deployable • Pure Python/Flask Engine</div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Global Client Scripts -->
+    <script>
+        // Mobile Drawer
+        const mobToggle = document.getElementById('mobile-toggle');
+        const mobClose = document.getElementById('mobile-close');
+        const mobDrawer = document.getElementById('mobile-drawer');
+        if (mobToggle && mobDrawer) {
+            mobToggle.addEventListener('click', () => {
+                mobDrawer.classList.add('open');
+                document.body.style.overflow = 'hidden';
+            });
+            mobClose.addEventListener('click', () => {
+                mobDrawer.classList.remove('open');
+                document.body.style.overflow = '';
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && mobDrawer.classList.contains('open')) {
+                    mobDrawer.classList.remove('open');
+                    document.body.style.overflow = '';
+                }
+            });
+        }
+
+        // Auto-dismiss toasts after 5 seconds
+        setTimeout(() => {
+            const toasts = document.querySelectorAll('.toast-item');
+            toasts.forEach(t => {
+                t.style.opacity = '0';
+                t.style.transform = 'translateY(10px)';
+                t.style.transition = 'all 0.3s ease';
+                setTimeout(() => t.remove(), 300);
+            });
+        }, 5000);
+
+        // Helper Toast Function for JS AJAX calls
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `toast-item toast-${type}`;
+            let iconSvg = '';
+            if (type === 'success') {
+                iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            } else if (type === 'error') {
+                iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+            } else if (type === 'warning') {
+                iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+            } else {
+                iconSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+            }
+            toast.innerHTML = `<div style="display: flex; align-items: center; gap: 8px;">${iconSvg}<span>${message}</span></div>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 4500);
+        }
+
+        // Global Beautiful Custom Prompt Dialog
+        function showCustomPrompt({ title, description, placeholder, defaultValue, confirmText, onConfirm }) {
+            let overlay = document.getElementById('global-prompt-modal');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'global-prompt-modal';
+                overlay.className = 'modal-backdrop';
+                document.body.appendChild(overlay);
+            }
+            overlay.innerHTML = `
+                <div class="modal-content" style="max-width: 440px; animation: modalIn 0.2s ease;">
+                    <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 8px;">${title || 'Input Required'}</h3>
+                    ${description ? `<p style="color: var(--text-muted); font-size: 13.5px; margin: 0 0 16px;">${description}</p>` : ''}
+                    <form id="global-prompt-form" onsubmit="event.preventDefault(); submitPrompt();">
+                        <input type="text" id="global-prompt-input" class="input-dark" value="${defaultValue || ''}" placeholder="${placeholder || ''}" required autofocus style="margin-bottom: 20px; font-size: 14px;">
+                        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button type="button" class="btn-glass" onclick="closePromptModal()">Cancel</button>
+                            <button type="submit" class="btn-solid-white">${confirmText || 'Confirm'}</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            overlay.style.display = 'flex';
+            const input = document.getElementById('global-prompt-input');
+            setTimeout(() => { input.focus(); input.select(); }, 50);
+
+            window.submitPrompt = function() {
+                const val = document.getElementById('global-prompt-input').value.trim();
+                if (val) {
+                    closePromptModal();
+                    if (onConfirm) onConfirm(val);
+                }
+            };
+            window.closePromptModal = function() {
+                overlay.style.display = 'none';
+            };
+        }
+
+        // Global Beautiful Custom Confirm Dialog
+        function showCustomConfirm({ title, message, confirmText, confirmClass, onConfirm }) {
+            let overlay = document.getElementById('global-confirm-modal');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'global-confirm-modal';
+                overlay.className = 'modal-backdrop';
+                document.body.appendChild(overlay);
+            }
+            overlay.innerHTML = `
+                <div class="modal-content" style="max-width: 420px; animation: modalIn 0.2s ease;">
+                    <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 8px;">${title || 'Confirm Action'}</h3>
+                    <p style="color: var(--text-muted); font-size: 14px; line-height: 1.5; margin: 0 0 20px;">${message || 'Are you sure you want to proceed?'}</p>
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="btn-glass" onclick="document.getElementById('global-confirm-modal').style.display='none'">Cancel</button>
+                        <button type="button" id="global-confirm-ok-btn" class="${confirmClass || 'btn-solid-white'}">${confirmText || 'Confirm'}</button>
+                    </div>
+                </div>
+            `;
+            overlay.style.display = 'flex';
+            document.getElementById('global-confirm-ok-btn').onclick = function() {
+                overlay.style.display = 'none';
+                if (onConfirm) onConfirm();
+            };
+        }
+    </script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
