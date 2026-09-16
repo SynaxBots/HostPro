@@ -1,0 +1,6 @@
+{
+  "name": "Python Hosting Platform",
+  "description": "A production-grade, self-hosted Python application hosting platform with Telegram ID & 6-digit OTP passwordless authentication, isolated process management, port and subdomain routing, file manager, live console, wallet and INR billing, and comprehensive admin controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

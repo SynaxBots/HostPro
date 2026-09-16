@@ -1,0 +1,257 @@
+import json
+import random
+import time
+import urllib.request
+import urllib.error
+import ssl
+from database import get_db
+from security import log_activity
+
+UPI_VPA = "paytm.s2znl0o@pty"
+UPI_PAYEE_NAME = "Python Hosting Platform"
+MERCHANT_ID = "hAsqwQ85709194299740"
+VERIFY_API_BASE = "https://mixyox.in/zxox.php"
+
+# Anti-spam in-memory tracker: { utr: last_checked_timestamp }
+_verification_locks = {}
+
+def generate_random_utr():
+    """Generates a unique random 12-digit numeric reference."""
+    return str(random.randint(100000000000, 999999999999))
+
+def create_upi_order(user_id, amount_inr):
+    """
+    Creates a pending UPI order with a 12-digit random UTR.
+    Returns the order details and generated UPI payment link.
+    """
+    if amount_inr <= 0:
+        return None, "Deposit amount must be greater than ₹0."
+        
+    db = get_db()
+    # Generate a unique 12-digit UTR
+    for _ in range(10):
+        utr = generate_random_utr()
+        exists = db.execute("SELECT id FROM upi_orders WHERE utr = ?", (utr,)).fetchone()
+        if not exists:
+            break
+    else:
+        utr = str(int(time.time() * 1000))[:12]
+
+    # Create standard UPI deep link URL
+    # upi://pay?pa=paytm.s2znl0o@pty&pn=Python Hosting Platform&am=XX.XX&tr=XXXXXXXXXXXX&cu=INR&tn=AddFunds_XXXXXXXXXXXX
+    upi_uri = f"upi://pay?pa={UPI_VPA}&pn={urllib.parse.quote(UPI_PAYEE_NAME)}&am={amount_inr:.2f}&tr={utr}&cu=INR&tn=AddFunds_{utr}"
+
+    try:
+        cursor = db.execute("""
+        INSERT INTO upi_orders (user_id, utr, expected_amount, status)
+        VALUES (?, ?, ?, 'pending')
+        """, (user_id, utr, amount_inr))
+        db.commit()
+        order_id = cursor.lastrowid
+        
+        return {
+            "order_id": order_id,
+            "utr": utr,
+            "amount": amount_inr,
+            "vpa": UPI_VPA,
+            "payee_name": UPI_PAYEE_NAME,
+            "upi_uri": upi_uri
+        }, None
+    except Exception as e:
+        db.rollback()
+        return None, str(e)
+
+def get_upi_order(user_id, utr):
+    """Retrieves an existing order by user ID and UTR."""
+    db = get_db()
+    return db.execute("""
+    SELECT * FROM upi_orders WHERE user_id = ? AND utr = ?
+    """, (user_id, utr)).fetchone()
+
+def verify_and_credit_upi_payment(user_id, utr):
+    """
+    Verifies the payment with merchant API and credits user balance.
+    Enforces:
+    1. Anti-spam throttling on button clicks.
+    2. Single-use UTR protection.
+    3. Handles exact amount and mismatch amounts according to exact specification.
+    """
+    now = time.time()
+    last_check = _verification_locks.get(utr, 0)
+    if now - last_check < 3.0:
+        return {
+            "success": False,
+            "message": "Verification is already in progress. Please wait a moment."
+        }
+    _verification_locks[utr] = now
+
+    db = get_db()
+
+    # 1. Check order in DB
+    order = db.execute("SELECT * FROM upi_orders WHERE utr = ?", (utr,)).fetchone()
+    if not order:
+        return {
+            "success": False,
+            "message": "Invalid transaction order or UTR not found."
+        }
+
+    if order["user_id"] != user_id:
+        return {
+            "success": False,
+            "message": "Unauthorized access to transaction order."
+        }
+
+    # 2. Check if already credited
+    if order["status"] == "success":
+        return {
+            "success": True,
+            "already_credited": True,
+            "message": f"This payment has already been credited (₹{order['actual_amount']:.2f}).",
+            "amount_added": order["actual_amount"]
+        }
+
+    # Check if UTR is already in transactions table
+    existing_tx = db.execute("SELECT id, amount_inr FROM transactions WHERE transaction_ref = ? AND status = 'success'", (utr,)).fetchone()
+    if existing_tx:
+        # Mark order as success to stay in sync
+        db.execute("UPDATE upi_orders SET status = 'success', actual_amount = ? WHERE utr = ?", (existing_tx["amount_inr"], utr))
+        db.commit()
+        return {
+            "success": True,
+            "already_credited": True,
+            "message": f"This transaction has already been verified and credited.",
+            "amount_added": existing_tx["amount_inr"]
+        }
+
+    # 3. Query the Verification API
+    api_url = f"{VERIFY_API_BASE}?mid={MERCHANT_ID}&utr={utr}"
+    
+    try:
+        req = urllib.request.Request(
+            api_url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "application/json"
+            }
+        )
+        
+        # Bypass SSL verification if custom CA
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        
+        with urllib.request.urlopen(req, context=ctx, timeout=12) as response:
+            raw_body = response.read().decode('utf-8', errors='replace')
+            data = json.loads(raw_body)
+    except urllib.error.HTTPError as he:
+        return {
+            "success": False,
+            "message": f"Payment gateway returned HTTP error {he.code}. Please try again shortly."
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Unable to reach payment verification server ({str(e)}). Please click Paid again in a few moments."
+        }
+
+    # 4. Check API response
+    # Expected format:
+    # { "success": true, "merchant_id": "...", "order_id": "...", "response": { "TXNAMOUNT": "2.00", "STATUS": "TXN_SUCCESS", "RESPCODE": "01", ... } }
+    is_success = False
+    resp_obj = {}
+    
+    if isinstance(data, dict):
+        if data.get("success") is True:
+            is_success = True
+        resp_obj = data.get("response", {})
+        if isinstance(resp_obj, dict):
+            if resp_obj.get("STATUS") == "TXN_SUCCESS" or resp_obj.get("RESPCODE") == "01":
+                is_success = True
+
+    if not is_success:
+        resp_msg = resp_obj.get("RESPMSG") if isinstance(resp_obj, dict) else None
+        msg = resp_msg or "Payment not received yet. If you have completed payment, please wait 5-10 seconds and click Paid again."
+        return {
+            "success": False,
+            "message": msg
+        }
+
+    # 5. Extract TXNAMOUNT
+    txn_amount_raw = resp_obj.get("TXNAMOUNT", "0") if isinstance(resp_obj, dict) else "0"
+    try:
+        paid_amount = float(txn_amount_raw)
+    except (ValueError, TypeError):
+        paid_amount = 0.0
+
+    if paid_amount <= 0:
+        return {
+            "success": False,
+            "message": "Gateway reported 0 or invalid transaction amount."
+        }
+
+    expected_amount = float(order["expected_amount"])
+    amount_mismatch = abs(paid_amount - expected_amount) >= 0.01
+
+    # 6. Atomic Crediting
+    try:
+        # Atomic lock & update
+        db.execute("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?", (paid_amount, user_id))
+        
+        # Update order status
+        now_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        db.execute("""
+        UPDATE upi_orders 
+        SET status = 'success', actual_amount = ?, response_json = ?, updated_at = ?
+        WHERE utr = ?
+        """, (paid_amount, json.dumps(data), now_str, utr))
+        
+        # Insert immutable transaction record
+        desc = f"UPI Deposit (Ref: {utr})"
+        if amount_mismatch:
+            desc += f" [Expected ₹{expected_amount:.2f}, Received ₹{paid_amount:.2f}]"
+            
+        db.execute("""
+        INSERT INTO transactions (user_id, transaction_ref, type, amount_inr, status, description, metadata_json)
+        VALUES (?, ?, 'deposit', ?, 'success', ?, ?)
+        """, (user_id, utr, paid_amount, desc, json.dumps(data)))
+        
+        # Send Notification
+        notif_msg = f"₹{paid_amount:,.2f} added to wallet via UPI."
+        if amount_mismatch:
+            notif_msg = f"You paid ₹{paid_amount:,.2f} (different from QR amount ₹{expected_amount:,.2f}). Only paid amount credited."
+            
+        db.execute("""
+        INSERT INTO notifications (user_id, title, message, type)
+        VALUES (?, ?, ?, ?)
+        """, (user_id, "Wallet Top-Up Credited", notif_msg, "success" if not amount_mismatch else "warning"))
+        
+        log_activity(user_id, "upi_deposit", f"Credited ₹{paid_amount:.2f} (UTR: {utr})")
+        db.commit()
+
+        # Fetch updated balance
+        user_row = db.execute("SELECT wallet_balance FROM users WHERE id = ?", (user_id,)).fetchone()
+        new_balance = round(user_row["wallet_balance"], 2) if user_row else paid_amount
+
+        if not amount_mismatch:
+            return {
+                "success": True,
+                "mismatch": False,
+                "message": f"Payment Successful! ₹{paid_amount:,.2f} has been added to your wallet balance.",
+                "amount_added": paid_amount,
+                "new_balance": new_balance
+            }
+        else:
+            return {
+                "success": True,
+                "mismatch": True,
+                "message": f"You paid wrong amount! Adding only paid amount of ₹{paid_amount:,.2f} to your balance.",
+                "amount_added": paid_amount,
+                "new_balance": new_balance
+            }
+
+    except Exception as e:
+        db.rollback()
+        return {
+            "success": False,
+            "message": f"Database error while crediting funds: {str(e)}"
+        }

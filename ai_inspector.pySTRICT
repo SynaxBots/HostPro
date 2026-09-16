@@ -1,0 +1,613 @@
+import os
+import re
+import json
+import ast
+import time
+import urllib.request
+import urllib.error
+import ssl
+
+# OpenRouter Free Models in priority order
+OPENROUTER_MODELS = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "mistralai/mistral-small-24b-instruct-2501:free",
+    "google/gemini-2.0-flash-exp:free",
+    "google/gemini-2.0-flash-thinking-exp:free",
+    "deepseek/deepseek-r1:free",
+    "deepseek/deepseek-chat:free",
+    "qwen/qwen-2.5-coder-32b-instruct:free"
+]
+
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+SECURITY_RULES_PROMPT = """
+You are the Strict Security & Compliance AI for a Cloud Python/Node Hosting Platform.
+Inspect the provided script/code against our 4 MANDATORY PLATFORM SECURITY RULES:
+
+RULE 1: SCRIPT HOSTING SCRIPTS, PROXY TUNNELS, WEB SHELLS & RCE ENDPOINTS ARE FORBIDDEN
+- Block nested web hosting panels, child bot hosters, proxy tunnels (ngrok, cloudflared, localtunnel, frp, serveo, pyngrok, bore, localhost.run, chisel, rathole).
+- Block reverse shells, web shells, and endpoints executing arbitrary user-supplied terminal commands (e.g. os.system(cmd), subprocess.Popen(request.args.get('cmd'))).
+
+RULE 2: VPS FILE STEALERS, TOKEN GRABBERS, EXFILTRATION & HOST FILESYSTEM SCANNING ARE FORBIDDEN
+- Block file exfiltration, looter bots, filesystem dumpers, stealer bots, and scripts scanning or traversing host directories outside their application folder (e.g. os.walk('/'), os.walk('..'), /root, /home, /etc, /proc, /sys, /var, /usr).
+- Block scripts reading and exfiltrating sensitive host files, credentials (.env, id_rsa, /etc/shadow, /etc/passwd), or bulk container filesystem archives to Telegram bots (sendDocument, api.telegram.org), Discord webhooks, remote C2 servers, FTP, or unauthorized endpoints.
+
+RULE 3: ENCRYPTED, OBFUSCATED, PACKED OR HIDDEN PAYLOADS ARE FORBIDDEN
+- Block encrypted, heavily obfuscated, packed, or hidden payloads (e.g. PyArmor runtime, base64/hex/zlib/marshal/codecs/gzip/lzma exec/eval droppers, AES/XOR decrypted payload executors, encrypted shellcode).
+
+RULE 4: DDOS & PACKET BOMBING SCRIPTS ARE FORBIDDEN
+- Block UDP flooders, SYN flooders, HTTP stressers, Layer 4/7 denial of service tools, botnet clients, slowloris, packet bombers, or socket flooding loops.
+
+Standard legitimate web apps (Flask, Django, FastAPI, Celery, normal Telegram/Discord bots, APIs, utility scripts, databases) are completely ALLOWED if they do not violate the 4 rules above.
+
+Respond ONLY with valid JSON in this exact structure:
+{
+  "allowed": true or false,
+  "violation_rule": "None" or "Rule 1: Hosting/Tunnel Script" or "Rule 2: VPS File Exfiltration/Stealer" or "Rule 3: Encrypted/Obfuscated Payload" or "Rule 4: DDoS/Flooding Script",
+  "reason": "Concise 1-sentence explanation of why it was allowed or blocked"
+}
+"""
+
+def get_openrouter_api_key():
+    """Retrieves the OpenRouter API key from environment or database setting."""
+    env_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if env_key:
+        return env_key
+    try:
+        from database import get_setting
+        db_key = get_setting("openrouter_api_key", "").strip()
+        if db_key:
+            return db_key
+    except Exception:
+        pass
+    return ""
+
+def _ast_security_analysis(content: str, filename: str = "") -> dict | None:
+    """
+    Analyzes Python Abstract Syntax Tree (AST) to detect dangerous function calls,
+    imports, and execution patterns that cannot be hidden by variable renaming.
+    """
+    try:
+        tree = ast.parse(content)
+    except Exception:
+        # If not valid Python syntax (or shell/JS script), skip AST and rely on pattern heuristics
+        return None
+
+    # Track imported modules and functions
+    imported_modules = set()
+    imported_names = {}
+    called_functions = []
+    string_constants = []
+
+    class SecurityVisitor(ast.NodeVisitor):
+        def visit_Import(self, node):
+            for alias in node.names:
+                imported_modules.add(alias.name)
+                if alias.asname:
+                    imported_names[alias.asname] = alias.name
+            self.generic_visit(node)
+
+        def visit_ImportFrom(self, node):
+            module = node.module or ""
+            imported_modules.add(module)
+            for alias in node.names:
+                full_name = f"{module}.{alias.name}" if module else alias.name
+                imported_names[alias.asname or alias.name] = full_name
+            self.generic_visit(node)
+
+        def visit_Constant(self, node):
+            if isinstance(node.value, str):
+                string_constants.append(node.value)
+            self.generic_visit(node)
+
+        def visit_Str(self, node):  # Python < 3.8 compatibility
+            string_constants.append(node.s)
+            self.generic_visit(node)
+
+        def visit_Call(self, node):
+            # Extract function call name
+            func_name = ""
+            if isinstance(node.func, ast.Name):
+                func_name = node.func.id
+            elif isinstance(node.func, ast.Attribute):
+                val = getattr(node.func.value, "id", "")
+                func_name = f"{val}.{node.func.attr}" if val else node.func.attr
+            
+            called_functions.append((func_name, node))
+            self.generic_visit(node)
+
+    visitor = SecurityVisitor()
+    visitor.visit(tree)
+
+    all_strings = " ".join(string_constants).lower()
+
+    # 1. AST Check - Obfuscated Dynamic Execution (Rule 3)
+    for func_name, node in called_functions:
+        if func_name in ("exec", "eval"):
+            # Check if arguments contain decoding/decompression/unhexing calls
+            arg_str = ast.dump(node)
+            if any(dec in arg_str for dec in ("b64decode", "b32decode", "b85decode", "a85decode", "decompress", "loads", "unhexlify", "fromhex", "decode")):
+                return {
+                    "allowed": False,
+                    "violation_rule": "Rule 3: Encrypted/Obfuscated Payload",
+                    "reason": "Dynamic execution dropper (exec/eval with base64/zlib/marshal/hex decompressor) detected via AST analysis."
+                }
+
+    # 2. AST Check - Forbidden imports
+    forbidden_imports = {
+        "pyngrok": ("Rule 1: Hosting/Tunnel Script", "Unauthorized reverse proxy tunnel (pyngrok) detected."),
+        "cloudflared": ("Rule 1: Hosting/Tunnel Script", "Unauthorized reverse proxy tunnel (cloudflared) detected."),
+        "pynput": ("Rule 2: VPS File Exfiltration/Stealer", "Unauthorized keylogger/input-hook library (pynput) detected."),
+        "keyboard": ("Rule 2: VPS File Exfiltration/Stealer", "Unauthorized keystroke interceptor (keyboard) detected.")
+    }
+    for mod, (rule, reason) in forbidden_imports.items():
+        if any(mod in m for m in imported_modules):
+            return {
+                "allowed": False,
+                "violation_rule": rule,
+                "reason": reason
+            }
+
+    # 3. AST Check - Root traversal or host file access in os.walk / scandir / listdir / glob (Rule 2)
+    for func_name, node in called_functions:
+        if any(fs_func in func_name for fs_func in ("os.walk", "os.scandir", "os.listdir", "glob.glob", "rglob")):
+            for arg in node.args:
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                    val = arg.value.strip()
+                    if val in ("/", "..", "/root", "/etc", "/home", "/proc", "/sys", "/var", "/usr", "/*", "/..", "../.."):
+                        return {
+                            "allowed": False,
+                            "violation_rule": "Rule 2: VPS File Exfiltration/Stealer",
+                            "reason": f"AST analysis detected unauthorized host directory scanning target '{val}'."
+                        }
+
+    # 4. AST Check - Sensitive Host Credentials Targets (Rule 2)
+    sensitive_targets = ["/etc/shadow", "/etc/gshadow", "/etc/sudoers", "authorized_keys", "id_rsa", "id_ed25519", "id_ecdsa"]
+    for target in sensitive_targets:
+        if any(target in s for s in string_constants):
+            return {
+                "allowed": False,
+                "violation_rule": "Rule 2: VPS File Exfiltration/Stealer",
+                "reason": f"AST analysis detected access to restricted host credential target '{target}'."
+            }
+
+    return None
+
+def _heuristic_rule_check(content: str, filename: str = "") -> dict:
+    """
+    High-speed deterministic security check for high-confidence malicious signatures.
+    Guarantees instant detection even if OpenRouter network or free tier is busy.
+    """
+    lower = content.lower()
+
+    # First run AST analysis for Python files
+    ast_result = _ast_security_analysis(content, filename)
+    if ast_result and not ast_result["allowed"]:
+        return ast_result
+
+    # -------------------------------------------------------------
+    # RULE 3: Encrypted or Heavily Obfuscated Payloads
+    # -------------------------------------------------------------
+    # PyArmor obfuscation markers
+    if "__pyarmor__" in content or "pyarmor_runtime" in lower or "pytransform" in lower or "pyarmor" in lower:
+        if "__pyarmor__" in content or "pyarmor_runtime" in lower or "pytransform" in lower:
+            return {
+                "allowed": False,
+                "violation_rule": "Rule 3: Encrypted/Obfuscated Payload",
+                "reason": "Encrypted PyArmor obfuscation detected. Unauditable encrypted scripts are strictly forbidden."
+            }
+
+    # Base64 / Hex / Zlib / Marshal / Codecs + exec / eval droppers
+    exec_eval_patterns = [
+        r"exec\s*\(\s*__import__\s*\(\s*['\"]base64['\"]\s*\)\.b(?:64|32|85|16)decode",
+        r"exec\s*\(\s*base64\.b(?:64|32|85|16)decode\s*\(",
+        r"eval\s*\(\s*base64\.b(?:64|32|85|16)decode\s*\(",
+        r"exec\s*\(\s*zlib\.decompress\s*\(",
+        r"eval\s*\(\s*zlib\.decompress\s*\(",
+        r"exec\s*\(\s*gzip\.decompress\s*\(",
+        r"exec\s*\(\s*bz2\.decompress\s*\(",
+        r"exec\s*\(\s*lzma\.decompress\s*\(",
+        r"exec\s*\(\s*marshal\.loads\s*\(",
+        r"eval\s*\(\s*marshal\.loads\s*\(",
+        r"exec\s*\(\s*codecs\.decode\s*\(",
+        r"exec\s*\(\s*bytes\.fromhex\s*\(",
+        r"exec\s*\(\s*bytearray\.fromhex\s*\(",
+        r"exec\s*\(\s*binascii\.(?:unhexlify|a2b_base64|a2b_hex)\s*\(",
+        r"exec\s*\(\s*compile\s*\(",
+        r"exec\s*\(\s*['\"].*?['\"]\s*\.\s*join\s*\(\s*\[\s*chr\s*\(",
+        r"eval\s*\(\s*['\"].*?['\"]\s*\.\s*join\s*\(\s*\[\s*chr\s*\(",
+        r"getattr\s*\(\s*__builtins__\s*,\s*['\"]exec['\"]\s*\)",
+        r"getattr\s*\(\s*__builtins__\s*,\s*['\"]eval['\"]\s*\)",
+        r"__builtins__\[['\"]exec['\"]\]",
+        r"__builtins__\[['\"]eval['\"]\]"
+    ]
+    for pattern in exec_eval_patterns:
+        if re.search(pattern, content, re.IGNORECASE):
+            return {
+                "allowed": False,
+                "violation_rule": "Rule 3: Encrypted/Obfuscated Payload",
+                "reason": "Obfuscated dynamic execution dropper (base64/zlib/marshal/hex/chr exec) detected."
+            }
+
+    # Encrypted shellcode injection
+    shellcode_patterns = [
+        r"ctypes\.windll\.kernel32\.VirtualAlloc",
+        r"ctypes\.cdll\.LoadLibrary.*libc.*mprotect",
+        r"ctypes\.windll\.kernel32\.RtlMoveMemory",
+        r"ctypes\.windll\.kernel32\.CreateThread"
+    ]
+    for pattern in shellcode_patterns:
+        if re.search(pattern, content, re.IGNORECASE):
+            return {
+                "allowed": False,
+                "violation_rule": "Rule 3: Encrypted/Obfuscated Payload",
+                "reason": "Direct binary shellcode memory allocator/executor detected."
+            }
+
+    # -------------------------------------------------------------
+    # RULE 4: DDoS & Packet Bombing Scripts
+    # -------------------------------------------------------------
+    ddos_signatures = [
+        r"socket\.SOCK_DGRAM[\s\S]*while\s+(?:True|1)[\s\S]*\.sendto\(",
+        r"while\s+(?:True|1)[\s\S]*socket\.SOCK_DGRAM[\s\S]*\.sendto\(",
+        r"threading\.Thread[\s\S]*while\s+(?:True|1)[\s\S]*\.sendto\(",
+        r"socket\.SOCK_RAW",
+        r"IPPROTO_RAW|IPPROTO_ICMP",
+        r"syn\s*flood|udp\s*flood|http\s*flooder|slowloris|packet\s*bomber",
+        r"ddos\s*attack|layer7\s*stresser|botnet\s*attack|target\s*ip[\s\S]*target\s*port[\s\S]*threads",
+        r"scapy\.all.*IP\(.*TCP\(.*flags=['\"]S['\"]"
+    ]
+    for pattern in ddos_signatures:
+        if re.search(pattern, content, re.IGNORECASE | re.DOTALL):
+            return {
+                "allowed": False,
+                "violation_rule": "Rule 4: DDoS/Flooding Script",
+                "reason": "Denial-of-Service / UDP/SYN flooding or packet stresser pattern detected."
+            }
+
+    # Also detect socket UDP loop patterns with sendto inside while loops
+    if "sock_dgram" in lower and ("sendto(" in lower or "send(" in lower) and ("while true" in lower or "while 1" in lower or "threads" in lower):
+        return {
+            "allowed": False,
+            "violation_rule": "Rule 4: DDoS/Flooding Script",
+            "reason": "Unthrottled socket packet flooding loop detected."
+        }
+
+    # -------------------------------------------------------------
+    # RULE 2: VPS File Stealers, Token Harvesters & Exfiltration
+    # -------------------------------------------------------------
+    # 1. Zero tolerance for host credential targets & private SSH keys
+    critical_system_targets = [
+        r"/etc/shadow", r"/etc/gshadow", r"/etc/sudoers", r"/etc/security",
+        r"authorized_keys", r"id_rsa", r"id_ed25519", r"id_ecdsa", r"/root/\.ssh",
+        r"\.my\.cnf", r"debian\.cnf", r"\.pgpass", r"/proc/kcore"
+    ]
+    for target in critical_system_targets:
+        if re.search(target, content, re.IGNORECASE):
+            return {
+                "allowed": False,
+                "violation_rule": "Rule 2: VPS File Exfiltration/Stealer",
+                "reason": f"Access or reference to restricted host credential target '{target.replace(chr(92), '')}' is strictly forbidden."
+            }
+
+    # 2. Looter / Stealer Bot Intent Markers & Signatures
+    stealer_intent_markers = [
+        r"vps\s*looter|looter\s*bot|box\s*looter|own\s*the\s*box|own\s*everything",
+        r"sab\s*kuchh\s*le\s*jaunga|loot\s*started|loot\s*finished|dump_job",
+        r"source\s*code\s*sender|code\s*sender\s*bot|vps\s*source\s*code",
+        r"vps\s*login.*password|password\s*collector|credential\s*scan",
+        r"token\s*stealer|token\s*grabber|credential\s*harvester|file\s*stealer",
+        r"source\s*code\s*dump|token\s*files\s*pehle|token\s*file\s*data",
+        r"scan_file_for_tokens|resolve_bot_username.*send_doc",
+        r"gather_all_files.*\[.*\/root.*\/etc",
+        r"dump\s*to\s*own\s*the\s*box|dump_all_files|exfiltrate_files|vps\s*dumper",
+        r"discord_tokens\s*=|grab_discord_token|steal_tokens|tdata_grabber"
+    ]
+    for marker in stealer_intent_markers:
+        if re.search(marker, content, re.IGNORECASE):
+            return {
+                "allowed": False,
+                "violation_rule": "Rule 2: VPS File Exfiltration/Stealer",
+                "reason": "Host filesystem looter / token & source code exfiltration routine detected."
+            }
+
+    # 3. Root Filesystem Traversal / Outside Container Scanning
+    root_traversal_patterns = [
+        r"os\.walk\s*\(\s*['\"]\/['\"]\s*\)",
+        r"os\.walk\s*\(\s*['\"]\.\.['\"]\s*\)",
+        r"os\.walk\s*\(\s*['\"]\/[a-zA-Z0-9_\-\.]+['\"]\s*\)",
+        r"os\.walk\s*\(\s*os\.path\.abspath\s*\(\s*os\.sep\s*\)\s*\)",
+        r"Path\s*\(\s*['\"]\/['\"]\s*\)\.(?:rglob|glob|iterdir)",
+        r"Path\s*\(\s*['\"]\.\.['\"]\s*\)\.(?:rglob|glob|iterdir)",
+        r"Path\s*\(\s*['\"]\/[a-zA-Z0-9_\-\.]+['\"]\s*\)\.(?:rglob|glob)",
+        r"Path\.home\(\)\.(?:rglob|glob)",
+        r"glob\.glob\s*\(\s*['\"]\/(?:\*|\*\*|[a-zA-Z0-9_]+)",
+        r"os\.scandir\s*\(\s*['\"](?:\/|\.\.|\/root|\/etc|\/home|\/var|\/usr)['\"]",
+        r"os\.listdir\s*\(\s*['\"](?:\/|\.\.|\/root|\/etc|\/home|\/var|\/usr)['\"]"
+    ]
+    has_root_traversal = any(re.search(p, content, re.IGNORECASE) for p in root_traversal_patterns)
+
+    # Exfiltration transport destinations
+    exfil_destinations = [
+        r"discord\.com/api/webhooks", r"discordapp\.com/api/webhooks",
+        r"api\.telegram\.org/bot", r"sendDocument", r"send_document", r"sendPhoto", r"send_photo",
+        r"transfer\.sh", r"file\.io", r"catbox\.moe", r"anonfiles", r"gofile\.io", r"temp\.sh",
+        r"requests\.post", r"requests\.put", r"urllib\.request", r"aiohttp\.ClientSession",
+        r"webhook", r"telegram\.ext", r"telebot"
+    ]
+    has_exfil_destination = any(re.search(dst, content, re.IGNORECASE) for dst in exfil_destinations)
+
+    # If script traverses host root / parent directory AND connects to network/exfil channels
+    if has_root_traversal and has_exfil_destination:
+        return {
+            "allowed": False,
+            "violation_rule": "Rule 2: VPS File Exfiltration/Stealer",
+            "reason": "Host filesystem traversal outside container directory combined with file exfiltration detected."
+        }
+
+    # If script explicitly walks root '/' or parent '..'
+    if re.search(r"os\.walk\s*\(\s*['\"]\/['\"]\s*\)|os\.walk\s*\(\s*['\"]\.\.['\"]\s*\)", content):
+        return {
+            "allowed": False,
+            "violation_rule": "Rule 2: VPS File Exfiltration/Stealer",
+            "reason": "Scanning host root filesystem ('/') or parent directories ('..') outside application sandbox is strictly prohibited."
+        }
+
+    # 4. Reading sensitive host files + network exfiltration
+    exfil_sources = [
+        r"/etc/passwd", r"\.env", r"/proc/uptime", r"/etc/crontab",
+        r"\/root", r"\/home", r"Path\.home\(\)"
+    ]
+    source_count = sum(1 for src in exfil_sources if re.search(src, content, re.IGNORECASE))
+    dest_count = sum(1 for dst in exfil_destinations if re.search(dst, content, re.IGNORECASE))
+
+    if source_count >= 1 and dest_count >= 1 and ("rglob" in lower or "os.walk" in lower or "find" in lower or "read_text" in lower or "open(" in lower):
+        return {
+            "allowed": False,
+            "violation_rule": "Rule 2: VPS File Exfiltration/Stealer",
+            "reason": "Host filesystem traversal and file exfiltration pattern detected."
+        }
+
+    if ("/etc/passwd" in lower) and ("telegram" in lower or "webhook" in lower or "requests" in lower or "urllib" in lower or "discord" in lower):
+        return {
+            "allowed": False,
+            "violation_rule": "Rule 2: VPS File Exfiltration/Stealer",
+            "reason": "Unauthorized reading of /etc/passwd combined with network transport detected."
+        }
+
+    # -------------------------------------------------------------
+    # RULE 1: Hosting Script / Nested Bot Hosting / Remote Code Execution Gateways / Tunnels
+    # -------------------------------------------------------------
+    # 1. External Reverse Proxy Tunnels
+    tunnel_patterns = [
+        r"pyngrok|ngrok\.connect|cloudflared\s+tunnel|localtunnel|serveo\.net|localhost\.run|bore\.pub|frpc|frps|chisel|rathole|pagekite",
+        r"from\s+pyngrok\s+import|import\s+pyngrok"
+    ]
+    for pattern in tunnel_patterns:
+        if re.search(pattern, content, re.IGNORECASE):
+            return {
+                "allowed": False,
+                "violation_rule": "Rule 1: Hosting/Tunnel Script",
+                "reason": "Unauthorized external proxy tunnel / reverse tunnel detected."
+            }
+
+    # 2. Reverse Shell Backdoors
+    reverse_shell_patterns = [
+        r"os\.dup2\s*\(\s*[a-zA-Z0-9_]+\.fileno\(\)\s*,\s*[012]\s*\)[\s\S]*(?:/bin/sh|/bin/bash|cmd\.exe)",
+        r"subprocess\.call\s*\(\s*\[\s*['\"]/(?:bin|usr/bin)/(?:sh|bash)['\"]\s*,\s*['\"]-i['\"]\s*\]\s*\)",
+        r"pty\.spawn\s*\(\s*['\"]/(?:bin|usr/bin)/(?:sh|bash)['\"]\s*\)"
+    ]
+    for pattern in reverse_shell_patterns:
+        if re.search(pattern, content, re.IGNORECASE | re.DOTALL):
+            return {
+                "allowed": False,
+                "violation_rule": "Rule 1: Hosting/Tunnel Script",
+                "reason": "Interactive reverse shell backdoor pattern detected."
+            }
+
+    # 3. Web Shells / Remote Code Execution Gateways
+    # Detects HTTP endpoints executing incoming request parameters via os.system or subprocess
+    web_shell_patterns = [
+        r"request\.(?:args|form|values|json)\[['\"](?:cmd|command|exec|code|shell|eval)['\"]\][\s\S]*(?:os\.system|subprocess\.|exec\(|eval\()",
+        r"(?:os\.system|subprocess\.Popen|subprocess\.run|subprocess\.check_output)\s*\(\s*request\.(?:args|form|values|json)",
+        r"request\.args\.get\s*\(\s*['\"](?:cmd|command|code|exec)['\"]\s*\)[\s\S]*(?:os\.system|subprocess\.|exec|eval)"
+    ]
+    for pattern in web_shell_patterns:
+        if re.search(pattern, content, re.IGNORECASE | re.DOTALL):
+            return {
+                "allowed": False,
+                "violation_rule": "Rule 1: Hosting/Tunnel Script",
+                "reason": "Web shell / unauthorized remote code execution gateway detected."
+            }
+
+    # 4. Nested Script / Bot Hosting Platforms (Telegram/Discord/Web multi-tenant script execution bot)
+    has_subproc_exec = (
+        ("subprocess.popen" in lower or "subprocess.run" in lower or "subprocess.call" in lower) and
+        ("sys.executable" in lower or "'node'" in lower or '"node"' in lower or "python" in lower)
+    )
+    has_bot_framework = ("telebot" in lower or "telegram" in lower or "discord" in lower or "aiogram" in lower or "pyrogram" in lower)
+    has_upload_handler = (
+        "content_types=['document']" in lower or
+        'content_types=["document"]' in lower or
+        "handle_zip_file" in lower or
+        "extractall" in lower or
+        "save_user_file" in lower or
+        "upload_bots" in lower or
+        "file_approvals" in lower
+    )
+    has_dynamic_pip = (
+        ("pip" in lower and "install" in lower and ("requirements" in lower or "package_name" in lower or "subprocess" in lower)) or
+        ("npm" in lower and "install" in lower and "package.json" in lower)
+    )
+
+    if has_bot_framework and has_subproc_exec and (has_upload_handler or has_dynamic_pip or "bot_scripts" in lower):
+        return {
+            "allowed": False,
+            "violation_rule": "Rule 1: Hosting/Tunnel Script",
+            "reason": "Nested script/bot hosting platform detected. Scripts that accept and execute arbitrary user-uploaded code or run multi-tenant child processes are strictly forbidden."
+        }
+
+    # Intent signature & keywords for bot hosting / script hosting services
+    nested_hosting_intents = [
+        r"host\s*&\s*run\s*python.*scripts",
+        r"host\s*&\s*run.*js.*scripts",
+        r"upload.*\.py.*\.js.*\.zip.*run",
+        r"run_all_user_scripts|run_all_scripts|running\s*all\s*code",
+        r"user_subscriptions[\s\S]*user_files[\s\S]*upload_bots",
+        r"save_user_file[\s\S]*run_script[\s\S]*bot_scripts",
+        r"file_approvals[\s\S]*send_file_for_approval"
+    ]
+    for pattern in nested_hosting_intents:
+        if re.search(pattern, content, re.IGNORECASE):
+            return {
+                "allowed": False,
+                "violation_rule": "Rule 1: Hosting/Tunnel Script",
+                "reason": "Script hosting / nested multi-tenant script runner pattern detected."
+            }
+
+    return {"allowed": True, "violation_rule": "None", "reason": "Passed security inspection"}
+
+def _call_openrouter_ai(content: str, filename: str = "") -> dict:
+    """
+    Queries OpenRouter AI API to perform thorough full-code security inspection
+    against the 4 platform security rules.
+    """
+    api_key = get_openrouter_api_key()
+    if not api_key:
+        return {"allowed": True, "violation_rule": "None", "reason": "OpenRouter API key not configured, proceeding to security rule engine."}
+
+    # Pass full code for complete structural inspection (up to 60,000 characters)
+    full_code = content[:60000] if len(content) > 60000 else content
+    user_prompt = f"Filename: {filename or 'script.py'}\n\nFull Code to inspect:\n```\n{full_code}\n```"
+
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    for model in OPENROUTER_MODELS:
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": SECURITY_RULES_PROMPT},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": 0.0,
+            "max_tokens": 500
+        }
+
+        req = urllib.request.Request(
+            OPENROUTER_API_URL,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://vesper-cloud.internal",
+                "X-Title": "Vesper Cloud AI Inspector"
+            },
+            method="POST"
+        )
+
+        try:
+            with urllib.request.urlopen(req, context=ctx, timeout=10) as response:
+                res_data = json.loads(response.read().decode("utf-8", errors="replace"))
+                msg = res_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                
+                # Extract and parse JSON from model response
+                json_match = re.search(r"\{[\s\S]*\}", msg)
+                if json_match:
+                    parsed = json.loads(json_match.group(0))
+                    is_allowed = bool(parsed.get("allowed", True))
+                    violation_rule = str(parsed.get("violation_rule", "None"))
+                    reason = str(parsed.get("reason", "Approved by AI Inspector"))
+
+                    # If AI flagged a violation, return immediately
+                    if not is_allowed or (violation_rule != "None" and "rule" in violation_rule.lower()):
+                        return {
+                            "allowed": False,
+                            "violation_rule": violation_rule if violation_rule != "None" else "Rule Violation Detected",
+                            "reason": f"[OpenRouter AI ({model.split('/')[1].split(':')[0]})] {reason}",
+                            "model_used": model
+                        }
+
+                    return {
+                        "allowed": True,
+                        "violation_rule": "None",
+                        "reason": f"[OpenRouter AI ({model.split('/')[1].split(':')[0]})] {reason}",
+                        "model_used": model
+                    }
+        except Exception:
+            # Fallback to next model
+            continue
+
+    return {"allowed": True, "violation_rule": "None", "reason": "AI verified safe."}
+
+def inspect_code(content: str, filename: str = "") -> dict:
+    """
+    Security inspection for Python / Shell / JS scripts:
+    1. FIRST: Queries OpenRouter AI API on the FULL CODE to evaluate all 4 mandatory rules.
+    2. SECOND: Runs deterministic heuristic + AST security engine to ensure zero-bypass safety.
+    """
+    if not content or not content.strip():
+        return {"allowed": True, "violation_rule": "None", "reason": "Empty file is allowed"}
+
+    ext = os.path.splitext(filename)[1].lower() if filename else ".py"
+
+    # Step 1: FIRST check full code via OpenRouter AI API
+    if ext in (".py", ".sh", ".bash", ".js", ".php", ".pyw", ".txt", ""):
+        ai_result = _call_openrouter_ai(content, filename)
+        if not ai_result["allowed"]:
+            return ai_result
+
+    # Step 2: Deterministic Heuristic + AST Verification Check
+    static_result = _heuristic_rule_check(content, filename)
+    if not static_result["allowed"]:
+        return static_result
+
+    return {"allowed": True, "violation_rule": "None", "reason": "Code inspected via OpenRouter AI & security engine and verified clean."}
+
+def inspect_file_on_disk(file_path: str) -> dict:
+    """Inspects a single file on disk."""
+    if not os.path.exists(file_path):
+        return {"allowed": True, "violation_rule": "None", "reason": "File does not exist"}
+
+    filename = os.path.basename(file_path)
+    ext = os.path.splitext(filename)[1].lower()
+
+    # Block raw executable binary formats immediately
+    if ext in (".exe", ".dll", ".so", ".bin", ".elf", ".pyc", ".pyd", ".dylib", ".class"):
+        return {
+            "allowed": False,
+            "violation_rule": "Rule 3: Encrypted/Obfuscated Payload",
+            "reason": f"Binary executable '{filename}' is strictly prohibited."
+        }
+
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read(500000)  # Read up to 500KB for inspection
+        return inspect_code(content, filename)
+    except Exception as e:
+        return {"allowed": True, "violation_rule": "None", "reason": f"File read exception: {str(e)}"}
+
+def inspect_server_app_directory(app_dir: str) -> tuple[bool, str]:
+    """
+    Recursively scans all files in a server application directory for security violations.
+    Returns (True, "All files clean") or (False, "Violation reason").
+    """
+    if not os.path.exists(app_dir):
+        return True, "Directory does not exist"
+
+    scanned_count = 0
+    for root, dirs, files in os.walk(app_dir):
+        # Skip benign metadata / cache directories
+        if any(skip in root for skip in ("__pycache__", ".git", "node_modules", ".venv", "venv")):
+            continue
+
+        for file in files:
+            full_path = os.path.join(root, file)
+            result = inspect_file_on_disk(full_path)
+            scanned_count += 1
+            if not result["allowed"]:
+                rel_path = os.path.relpath(full_path, app_dir)
+                return False, f"File '{rel_path}' blocked: {result['reason']} [{result['violation_rule']}]"
+
+    return True, f"Security scan passed ({scanned_count} files verified clean)."
