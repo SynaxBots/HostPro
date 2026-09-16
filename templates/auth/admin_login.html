@@ -1,0 +1,39 @@
+{% extends "layout.html" %}
+
+{% block title %}Administrator Sign In | {{ platform_name }}{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="min-height: 80vh; display: flex; align-items: center; justify-content: center; padding: 40px 20px;">
+    <div class="glass-card" style="max-width: 420px; width: 100%; padding: 36px 32px; border-color: rgba(255,255,255,0.12);">
+        <div style="text-align: center; margin-bottom: 28px;">
+            <div style="display: inline-flex; width: 44px; height: 44px; border-radius: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); align-items: center; justify-content: center; margin-bottom: 16px;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            </div>
+            <h1 style="font-size: 22px; font-weight: 700; margin: 0 0 6px;">Administrator Sign In</h1>
+            <p style="color: var(--text-muted); font-size: 13.5px; margin: 0;">Platform control panel root access</p>
+        </div>
+
+        <form method="POST" action="/auth/admin-login" style="display: flex; flex-direction: column; gap: 18px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div>
+                <label style="display: block; font-size: 13px; font-weight: 500; color: #d4d4d8; margin-bottom: 6px;">Admin Username or Email</label>
+                <input type="text" name="username_or_email" class="input-dark" placeholder="admin" required autofocus>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 13px; font-weight: 500; color: #d4d4d8; margin-bottom: 6px;">Admin Password</label>
+                <input type="password" name="password" class="input-dark" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="btn-solid-white" style="width: 100%; margin-top: 8px; padding: 11px;">
+                Authenticate Admin →
+            </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 13px; color: var(--text-muted);">
+            Regular user? <a href="/auth/login" style="color: #38bdf8; font-weight: 600; text-decoration: none;">Sign in with Telegram ID</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
