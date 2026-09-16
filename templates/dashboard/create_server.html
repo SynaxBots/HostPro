@@ -1,0 +1,320 @@
+{% extends "layout.html" %}
+
+{% block title %}Create Python Server | {{ platform_name }}{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="padding: 40px 24px; max-width: 820px;">
+    <!-- Breadcrumb & Header -->
+    <div style="margin-bottom: 28px;">
+        <a href="/dashboard" style="color: var(--text-muted); font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; transition: color 0.15s ease;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            <span>Back to Dashboard</span>
+        </a>
+        <h1 style="font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px;">Provision New Python Instance</h1>
+        <p style="color: var(--text-muted); font-size: 14px; margin: 0;">Configure your application environment, allocate dedicated ports and isolated process space.</p>
+    </div>
+
+    {# Calculate available vs full slots #}
+    {% set ns = namespace(has_available=false, total_subs=0, full_subs=0) %}
+    {% if subscriptions %}
+        {% set ns.total_subs = subscriptions|length %}
+        {% for sub in subscriptions %}
+            {% if sub.used_servers < sub.max_servers %}
+                {% set ns.has_available = true %}
+            {% else %}
+                {% set ns.full_subs = ns.full_subs + 1 %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+
+    {% if not subscriptions %}
+        <!-- No Active Subscription Card -->
+        <div class="glass-card" style="padding: 48px 32px; text-align: center; border-color: rgba(245, 158, 11, 0.35); background: linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, rgba(0, 0, 0, 0.4) 100%); border-radius: 16px;">
+            <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); display: inline-flex; align-items: center; justify-content: center; color: #fbbf24; margin-bottom: 20px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+            </div>
+            <h2 style="font-size: 22px; font-weight: 700; margin: 0 0 10px; color: #ffffff;">Active Hosting Subscription Required</h2>
+            <p style="color: var(--text-muted); font-size: 14.5px; max-width: 480px; margin: 0 auto 28px; line-height: 1.6;">
+                You currently do not have an active hosting subscription with available server slots. Choose a plan to start deploying and hosting your Python applications.
+            </p>
+            <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                <a href="/dashboard" class="btn-glass" style="padding: 12px 24px; font-size: 14px; display: inline-flex; align-items: center; gap: 8px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    <span>Back to Dashboard</span>
+                </a>
+                <a href="/plans" class="btn-solid-white" style="padding: 12px 28px; font-size: 14px; display: inline-flex; align-items: center; gap: 8px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    <span>Buy New Slot / Plan</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </a>
+            </div>
+        </div>
+
+    {% elif not ns.has_available %}
+        <!-- Big Beautiful Alert: ALL SLOTS FULL -->
+        <div class="glass-card" style="padding: 48px 36px; text-align: center; border: 1px solid rgba(239, 68, 68, 0.4); background: linear-gradient(180deg, rgba(239, 68, 68, 0.12) 0%, rgba(15, 15, 18, 0.8) 100%); border-radius: 18px; box-shadow: 0 20px 50px rgba(239, 68, 68, 0.15); margin-bottom: 24px;">
+            <div style="width: 72px; height: 72px; border-radius: 50%; background: rgba(239, 68, 68, 0.18); border: 1.5px solid rgba(239, 68, 68, 0.45); display: inline-flex; align-items: center; justify-content: center; color: #f87171; margin-bottom: 20px; box-shadow: 0 0 30px rgba(239, 68, 68, 0.25);">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </div>
+            
+            <div style="display: inline-block; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; padding: 4px 14px; border-radius: 9999px; margin-bottom: 14px;">
+                Slot Capacity Reached (100% Full)
+            </div>
+
+            <h2 style="font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 12px; color: #ffffff;">
+                Buy New Slot – This Slot is Full!
+            </h2>
+            
+            <p style="color: #d4d4d8; font-size: 15px; max-width: 540px; margin: 0 auto 24px; line-height: 1.6;">
+                All server slots allocated under your current subscription are currently in use. You cannot provision a new Python server until you purchase an additional slot or upgrade your plan.
+            </p>
+
+            <!-- Current Subscriptions Slot Status Breakdown -->
+            <div style="max-width: 480px; margin: 0 auto 32px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; text-align: left;">
+                <div style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 10px;">
+                    Current Active Subscriptions
+                </div>
+                {% for sub in subscriptions %}
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <div>
+                            <span style="font-weight: 600; color: #ffffff; font-size: 14px;">{{ sub.plan_name }}</span>
+                            <div style="font-size: 12px; color: var(--text-muted);">RAM: {{ sub.ram_mb }}MB • Storage: {{ sub.storage_mb }}MB</div>
+                        </div>
+                        <span style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px;">
+                            {{ sub.used_servers }}/{{ sub.max_servers }} Slots (FULL)
+                        </span>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Prominent Action Buttons -->
+            <div style="display: flex; justify-content: center; align-items: center; gap: 16px; flex-wrap: wrap;">
+                <a href="/dashboard" class="btn-glass" style="padding: 13px 28px; font-size: 14.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <span>Cancel (Dashboard)</span>
+                </a>
+                <a href="/plans" class="btn-solid-white" style="padding: 13px 32px; font-size: 14.5px; font-weight: 700; background: #ffffff; color: #000000; box-shadow: 0 0 25px rgba(255, 255, 255, 0.35); display: inline-flex; align-items: center; gap: 8px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    <span>Buy Now (New Slot)</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </a>
+            </div>
+        </div>
+
+    {% else %}
+        <!-- Partial Capacity: Form Available With Dynamic Warning on Full Slots -->
+        
+        <!-- Interactive Full Slot Warning Banner (Shown if selected sub is full) -->
+        <div id="full-slot-alert-banner" class="glass-card" style="display: none; padding: 24px; border: 1px solid rgba(239, 68, 68, 0.4); background: linear-gradient(180deg, rgba(239, 68, 68, 0.12) 0%, rgba(15, 15, 18, 0.7) 100%); border-radius: 14px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: flex-start; gap: 16px;">
+                <div style="color: #f87171; flex-shrink: 0; margin-top: 2px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                </div>
+                <div style="flex: 1;">
+                    <h3 style="font-size: 17px; font-weight: 700; color: #ffffff; margin: 0 0 6px;">
+                        This Slot is Full! Buy a New Slot
+                    </h3>
+                    <p style="color: #d4d4d8; font-size: 13.5px; margin: 0 0 16px; line-height: 1.5;">
+                        The selected subscription has reached its maximum server capacity. To provision this new server, please select another plan or buy a new slot.
+                    </p>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <a href="/plans" class="btn-solid-white" style="padding: 8px 18px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                            <span>Buy Now</span>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        </a>
+                        <a href="/dashboard" class="btn-glass" style="padding: 8px 18px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            <span>Cancel</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <form id="create-server-form" method="POST" action="/dashboard/create-server" enctype="multipart/form-data" class="glass-card" style="padding: 36px 32px; display: flex; flex-direction: column; gap: 24px;" onsubmit="return validateSlotSelection(event)">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <!-- 1. Subscription Selector -->
+            <div>
+                <label style="display: block; font-size: 13.5px; font-weight: 600; color: #ffffff; margin-bottom: 8px;">
+                    1. Select Hosting Subscription Plan
+                </label>
+                <select name="subscription_id" id="subscription_select" class="input-dark" required onchange="handleSubscriptionChange(this)">
+                    {% for sub in subscriptions %}
+                        {% set is_full = sub.used_servers >= sub.max_servers %}
+                        <option value="{{ sub.id }}" 
+                                data-used="{{ sub.used_servers }}" 
+                                data-max="{{ sub.max_servers }}" 
+                                data-full="{{ 'true' if is_full else 'false' }}"
+                                data-name="{{ sub.plan_name }}"
+                                {% if not is_full and not loop.first and not found_first %}selected{% endif %}>
+                            {% if is_full %}[FULL - {{ sub.used_servers }}/{{ sub.max_servers }} Slots] {% endif %}{{ sub.plan_name }} (Slots: {{ sub.used_servers }}/{{ sub.max_servers }} • RAM: {{ sub.ram_mb }}MB • Storage: {{ sub.storage_mb }}MB)
+                        </option>
+                    {% endfor %}
+                </select>
+                <div id="sub-helper-text" style="font-size: 12px; color: var(--text-dim); margin-top: 6px;">
+                    Each subscription allocates resources and allows up to its plan-defined server limit.
+                </div>
+            </div>
+
+            <!-- 2. Server Name -->
+            <div>
+                <label style="display: block; font-size: 13.5px; font-weight: 600; color: #ffffff; margin-bottom: 8px;">
+                    2. Server / Application Name
+                </label>
+                <input type="text" name="name" id="server_name" class="input-dark" placeholder="e.g. My Flask API" required maxlength="40">
+                <div style="font-size: 12px; color: var(--text-dim); margin-top: 6px;">
+                    Give your application an identifiable name. Ports and network routes will be allocated automatically.
+                </div>
+            </div>
+
+            <!-- 3. Entry File & Startup Command -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                <div>
+                    <label style="display: block; font-size: 13.5px; font-weight: 600; color: #ffffff; margin-bottom: 8px;">
+                        3. Main Entry File
+                    </label>
+                    <input type="text" name="entry_file" class="input-dark" value="app.py" required placeholder="app.py or main.py">
+                    <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">Defaults to <code>app.py</code> in the application root.</div>
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 13.5px; font-weight: 600; color: #ffffff; margin-bottom: 8px;">
+                        4. Custom Startup Command (Optional)
+                    </label>
+                    <input type="text" name="startup_command" class="input-dark" placeholder="e.g. gunicorn -w 2 -b 0.0.0.0:$PORT app:app">
+                    <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">Leave blank for default <code>python3 &lt;entry_file&gt;</code>.</div>
+                </div>
+            </div>
+
+            <!-- 4. Initial Project Files / ZIP Upload -->
+            <div>
+                <label style="display: block; font-size: 13.5px; font-weight: 600; color: #ffffff; margin-bottom: 8px;">
+                    5. Project Source Code (Optional ZIP Upload)
+                </label>
+                <div style="padding: 20px; border: 2px dashed var(--border-subtle); border-radius: 12px; text-align: center; background: rgba(255,255,255,0.01);">
+                    <input type="file" name="project_zip" id="project_zip" accept=".zip" style="display: none;" onchange="updateZipLabel(this)">
+                    <label for="project_zip" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        <span id="zip_label" style="font-size: 13.5px; color: #e4e4e7; font-weight: 500;">Click to upload a project .ZIP archive (or drag & drop)</span>
+                        <span style="font-size: 12px; color: var(--text-dim);">If empty, a ready-to-run starter Flask application will be generated automatically.</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 5. Auto Restart Setting -->
+            <div style="display: flex; align-items: center; gap: 12px; padding: 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 10px;">
+                <input type="checkbox" name="auto_restart" id="auto_restart" value="1" checked style="width: 18px; height: 18px; accent-color: var(--accent-green);">
+                <div>
+                    <label for="auto_restart" style="font-size: 13.5px; font-weight: 600; color: #ffffff; cursor: pointer;">Enable Automatic Crash Restart</label>
+                    <div style="font-size: 12px; color: var(--text-dim);">Automatically restarts the process with exponential backoff if an unexpected failure occurs.</div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div style="display: flex; justify-content: flex-end; gap: 14px; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 20px;">
+                <a href="/dashboard" class="btn-glass">Cancel</a>
+                <button type="submit" id="submit-btn" class="btn-solid-white" style="padding: 11px 28px; display: inline-flex; align-items: center; gap: 8px;">
+                    <span>Provision & Launch Server</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+            </div>
+        </form>
+
+        <!-- Big Beautiful Modal Dialog: Alert on Full Slot Submit -->
+        <div id="full-slot-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
+            <div class="glass-card" style="max-width: 520px; width: 100%; padding: 40px 32px; text-align: center; border: 1px solid rgba(239, 68, 68, 0.4); background: linear-gradient(180deg, #18181b 0%, #09090b 100%); border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.8);">
+                <div style="width: 68px; height: 68px; border-radius: 50%; background: rgba(239, 68, 68, 0.18); border: 1.5px solid rgba(239, 68, 68, 0.45); display: inline-flex; align-items: center; justify-content: center; color: #f87171; margin-bottom: 18px;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                </div>
+                
+                <h3 style="font-size: 22px; font-weight: 800; color: #ffffff; margin: 0 0 10px;">
+                    Buy New Slot – This Slot is Full!
+                </h3>
+                
+                <p id="modal-slot-desc" style="color: #d4d4d8; font-size: 14.5px; line-height: 1.6; margin: 0 0 28px;">
+                    This subscription has reached its maximum server capacity (1/1 slots). Please buy a new slot to deploy more Python applications.
+                </p>
+
+                <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+                    <a href="/dashboard" class="btn-glass" style="padding: 12px 24px; font-size: 14px; display: inline-flex; align-items: center; gap: 8px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        <span>Cancel (Dashboard)</span>
+                    </a>
+                    <a href="/plans" class="btn-solid-white" style="padding: 12px 28px; font-size: 14px; font-weight: 700; background: #ffffff; color: #000000; box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); display: inline-flex; align-items: center; gap: 8px;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                        <span>Buy Now</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    function updateZipLabel(input) {
+        const label = document.getElementById('zip_label');
+        if (input.files && input.files[0]) {
+            label.textContent = `Selected: ${input.files[0].name} (${(input.files[0].size / 1024).toFixed(1)} KB)`;
+            label.style.color = '#38bdf8';
+        }
+    }
+
+    function handleSubscriptionChange(select) {
+        const selectedOption = select.options[select.selectedIndex];
+        const isFull = selectedOption.getAttribute('data-full') === 'true';
+        const banner = document.getElementById('full-slot-alert-banner');
+        const submitBtn = document.getElementById('submit-btn');
+
+        if (isFull) {
+            if (banner) banner.style.display = 'block';
+            if (submitBtn) {
+                submitBtn.style.opacity = '0.6';
+                submitBtn.style.cursor = 'not-allowed';
+            }
+        } else {
+            if (banner) banner.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+            }
+        }
+    }
+
+    function validateSlotSelection(e) {
+        const select = document.getElementById('subscription_select');
+        if (!select) return true;
+
+        const selectedOption = select.options[select.selectedIndex];
+        const isFull = selectedOption.getAttribute('data-full') === 'true';
+        const planName = selectedOption.getAttribute('data-name') || 'Selected Plan';
+        const used = selectedOption.getAttribute('data-used');
+        const max = selectedOption.getAttribute('data-max');
+
+        if (isFull) {
+            e.preventDefault();
+            const modal = document.getElementById('full-slot-modal');
+            const desc = document.getElementById('modal-slot-desc');
+            if (desc) {
+                desc.textContent = `Your '${planName}' subscription has reached its maximum server capacity (${used}/${max} slots active). Please buy a new slot or choose a plan with available slots.`;
+            }
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+            return false;
+        }
+        return true;
+    }
+
+    // Initialize check on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        const select = document.getElementById('subscription_select');
+        if (select) {
+            handleSubscriptionChange(select);
+        }
+    });
+</script>
+{% endblock %}
+

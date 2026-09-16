@@ -1,0 +1,250 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard | {{ platform_name }}{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="padding: 40px 24px;">
+    <!-- Top Greeting & Quick Actions Bar -->
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 32px;">
+        <div>
+            <h1 style="font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 4px;">Welcome, {{ current_user.username }}</h1>
+            <p style="color: var(--text-muted); font-size: 14px; margin: 0;">Manage your hosted Python applications, allocate resources, and monitor live workloads.</p>
+        </div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <a href="/billing" class="btn-glass" style="display: flex; align-items: center; gap: 8px;">
+                <span>Wallet:</span>
+                <span style="color: var(--accent-green); font-weight: 600;">₹{{ "%.2f"|format(current_user.wallet_balance or 0.0) }}</span>
+            </a>
+            <a href="/account" class="btn-glass" style="display: flex; align-items: center; gap: 6px;" title="Account Settings">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                <span>Account Settings</span>
+            </a>
+            <a href="/dashboard/create-server" class="btn-solid-white">
+                + Create Server
+            </a>
+        </div>
+    </div>
+
+    <!-- Active Broadcasts / Announcements Banner -->
+    {% if announcements %}
+        <div style="margin-bottom: 32px; display: flex; flex-direction: column; gap: 12px;">
+            {% for a in announcements %}
+                <div class="glass-card" style="padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-color: rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.04);">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: rgba(56, 189, 248, 0.15); color: #38bdf8;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                        </span>
+                        <div>
+                            <div style="font-weight: 600; font-size: 14px; color: #ffffff;">{{ a.title }}</div>
+                            <div style="color: var(--text-muted); font-size: 13px;">{{ a.message }}</div>
+                        </div>
+                    </div>
+                    {% if a.action_url %}
+                        <a href="{{ a.action_url }}" class="pill-btn" style="font-size: 12px; padding: 6px 14px;">{{ a.action_text or 'Learn More' }}</a>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Resource & Metrics Overview Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 36px;">
+        <!-- Total Servers -->
+        <div class="glass-card" style="padding: 20px;">
+            <div style="color: var(--text-muted); font-size: 12.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Total Servers</div>
+            <div style="font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace;">{{ servers|length }}</div>
+            <div style="font-size: 12px; color: var(--text-dim); margin-top: 6px;">
+                <span style="color: var(--accent-green);">{{ running_count }} running</span> • <span>{{ servers|length - running_count }} stopped</span>
+            </div>
+        </div>
+
+        <!-- Wallet Balance -->
+        <div class="glass-card" style="padding: 20px;">
+            <div style="color: var(--text-muted); font-size: 12.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Wallet Balance (INR)</div>
+            <div style="font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--accent-green);">₹{{ "%.2f"|format(current_user.wallet_balance or 0.0) }}</div>
+            <div style="font-size: 12px; color: var(--text-dim); margin-top: 6px;">
+                <a href="/billing" style="color: #38bdf8; text-decoration: none;">+ Top Up Funds</a>
+            </div>
+        </div>
+
+        <!-- Total Storage Used -->
+        <div class="glass-card" style="padding: 20px;">
+            <div style="color: var(--text-muted); font-size: 12.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Storage Usage</div>
+            <div style="font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace;">{{ "%.1f"|format(total_storage_mb) }} <span style="font-size: 16px; color: var(--text-muted);">MB</span></div>
+            <div style="font-size: 12px; color: var(--text-dim); margin-top: 6px;">Across all user applications</div>
+        </div>
+
+        <!-- Active Subscriptions -->
+        <div class="glass-card" style="padding: 20px;">
+            <div style="color: var(--text-muted); font-size: 12.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Active Plans</div>
+            <div style="font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace;">{{ active_subs|length }}</div>
+            <div style="font-size: 12px; color: var(--text-dim); margin-top: 6px;">
+                <a href="/plans" style="color: #ffffff; text-decoration: none;">Explore Plans →</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Hosted Servers Section -->
+    <div style="margin-bottom: 48px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="font-size: 20px; font-weight: 700; margin: 0;">My Python Servers ({{ servers|length }})</h2>
+            {% if servers %}
+                <a href="/dashboard/create-server" class="pill-btn" style="font-size: 13px;">+ New Server</a>
+            {% endif %}
+        </div>
+
+        {% if servers %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px;">
+                {% for server in servers %}
+                    <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between; border-color: rgba(255,255,255,0.08);">
+                        <div>
+                            <!-- Header: Name and Status Badge -->
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
+                                <div>
+                                    <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 4px;">{{ server.name }}</h3>
+                                    <div style="font-size: 13px; color: var(--text-muted);">
+                                        Port <span style="color: #ffffff; font-family: 'JetBrains Mono', monospace; font-weight: 600;">{{ server.assigned_port }}</span> • <span style="color: #38bdf8;">{{ server.entry_file }}</span>
+                                    </div>
+                                </div>
+                                <span class="status-badge status-{{ server.status }}">
+                                    <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor;"></span>
+                                    <span>{{ server.status }}</span>
+                                </span>
+                            </div>
+
+                            <!-- Server Metadata List -->
+                            <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px; margin: 18px 0; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 14px;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-muted);">Assigned Port:</span>
+                                    <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">{{ server.assigned_port }}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-muted);">Process ID (PID):</span>
+                                    <span style="font-family: 'JetBrains Mono', monospace; color: {% if server.pid %}#4ade80{% else %}#9ca3af{% endif %};">
+                                        {{ server.pid or 'Not Running' }}
+                                    </span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-muted);">Plan:</span>
+                                    <span style="font-weight: 500;">{{ server.plan_name }}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-muted);">Disk Usage:</span>
+                                    <span>{{ "%.1f"|format(server.storage_used_bytes / (1024*1024)) }} MB / {{ server.storage_limit_mb }} MB</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 16px;">
+                            {% if server.status == 'running' %}
+                                <form method="POST" action="/server/{{ server.id }}/stop" style="margin: 0;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-glass" style="padding: 7px 12px; font-size: 12px; color: #f87171; display: inline-flex; align-items: center; gap: 6px;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>
+                                        <span>Stop</span>
+                                    </button>
+                                </form>
+                                <form method="POST" action="/server/{{ server.id }}/restart" style="margin: 0;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-glass" style="padding: 7px 12px; font-size: 12px; color: #fbbf24; display: inline-flex; align-items: center; gap: 6px;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                                        <span>Restart</span>
+                                    </button>
+                                </form>
+                            {% else %}
+                                <form method="POST" action="/server/{{ server.id }}/start" style="margin: 0;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-solid-white" style="padding: 7px 14px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                        <span>Start</span>
+                                    </button>
+                                </form>
+                            {% endif %}
+                            <a href="/server/{{ server.id }}" class="btn-glass" style="padding: 7px 14px; font-size: 12px; margin-left: auto; display: inline-flex; align-items: center; gap: 6px;">
+                                <span>Manage</span>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- Empty State -->
+            <div class="glass-card" style="padding: 60px 20px; text-align: center; border-style: dashed;">
+                <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: #38bdf8;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                </div>
+                <h3 style="font-size: 20px; font-weight: 700; margin: 0 0 8px;">No Python Servers Created Yet</h3>
+                <p style="color: var(--text-muted); font-size: 14px; max-width: 480px; margin: 0 auto 24px;">
+                    You have active subscriptions or wallet balance. Deploy your first Python application in seconds with automatic port allocation and custom subdomains.
+                </p>
+                <a href="/dashboard/create-server" class="btn-solid-white" style="padding: 11px 24px; display: inline-flex; align-items: center; gap: 8px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>Create Your First Server</span>
+                </a>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Active Subscriptions & Recent Activity Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px;">
+        <!-- Active Subscriptions -->
+        <div class="glass-card" style="padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin: 0;">Active Hosting Plans</h3>
+                <a href="/plans" style="font-size: 12px; color: #38bdf8; text-decoration: none;">+ Buy Plan</a>
+            </div>
+
+            {% if active_subs %}
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    {% for sub in active_subs %}
+                        <div style="padding: 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 14px; color: #ffffff;">
+                                    {{ sub.plan_name }}
+                                    {% if sub.is_admin_granted %}<span style="font-size: 10px; background: rgba(245,158,11,0.2); color: #fbbf24; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Admin Granted</span>{% endif %}
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                                    RAM: {{ sub.ram_mb }}MB • Storage: {{ sub.storage_mb }}MB • Limit: {{ sub.max_servers }} Server(s)
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <span class="status-badge status-{{ sub.status }}">{{ sub.status }}</span>
+                                <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Expires {{ sub.expiry_date[:10] }}</div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px 0;">
+                    No active subscriptions. <a href="/plans" style="color: #ffffff; font-weight: 600;">Browse plans</a> to activate hosting capacity.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Recent Activity Logs -->
+        <div class="glass-card" style="padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 16px;">Recent Platform Activity</h3>
+            {% if activities %}
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    {% for act in activities %}
+                        <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px;">
+                            <span style="color: var(--text-dim); margin-top: 2px;">•</span>
+                            <div style="flex: 1;">
+                                <div style="color: #e4e4e7; font-weight: 500;">{{ act.action.replace('_', ' ').capitalize() }}</div>
+                                <div style="color: var(--text-muted); font-size: 12px;">{{ act.details }}</div>
+                            </div>
+                            <div style="color: var(--text-dim); font-size: 11px; white-space: nowrap;">{{ act.created_at[:16] }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px 0;">
+                    No activity recorded yet.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
