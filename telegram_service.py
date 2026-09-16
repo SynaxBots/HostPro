@@ -20,10 +20,10 @@ def is_valid_bot_token(token: str) -> bool:
 
 def get_telegram_bot_token():
     """Retrieve Telegram bot token from environment or database settings."""
-    env_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    env_token = os.environ.get("TELEGRAM_BOT_TOKEN", "8802958782:AAExyZMIRYWxM6M0uCI88cPvou7v1YIrVno").strip()
     if is_valid_bot_token(env_token):
         return env_token
-    db_token = get_setting("telegram_bot_token", "")
+    db_token = get_setting("telegram_bot_token", "8802958782:AAExyZMIRYWxM6M0uCI88cPvou7v1YIrVno")
     if is_valid_bot_token(db_token):
         return db_token.strip()
     return ""
@@ -33,8 +33,8 @@ def get_telegram_bot_username():
     env_user = os.environ.get("TELEGRAM_BOT_USERNAME", "").strip()
     if env_user:
         return env_user.lstrip("@")
-    db_user = get_setting("telegram_bot_username", "VesperCloudBot")
-    return db_user.strip().lstrip("@") if db_user else "VesperCloudBot"
+    db_user = get_setting("telegram_bot_username", "BotStatusProBot)
+    return db_user.strip().lstrip("@") if db_user else "BotStatusProBot"
 
 def send_telegram_otp(telegram_id: str) -> dict:
     """
