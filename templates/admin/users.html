@@ -1,0 +1,212 @@
+{% extends "layout.html" %}
+
+{% block title %}User Management | Admin Panel{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="padding: 40px 24px;">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 28px;">
+        <div>
+            <h1 style="font-size: 26px; font-weight: 700; margin: 0 0 4px;">User & Subscription Oversight</h1>
+            <p style="color: var(--text-muted); font-size: 14px; margin: 0;">Search users, adjust wallet funds, manually grant plan tiers, and manage account statuses.</p>
+        </div>
+        <a href="/admin" class="btn-glass">← Back to Telemetry</a>
+    </div>
+
+    <!-- User Search & Filter Form -->
+    <form method="GET" action="/admin/users" class="glass-card" style="padding: 16px 20px; margin-bottom: 24px; display: flex; gap: 12px; align-items: center;">
+        <input type="text" name="q" class="input-dark" placeholder="Search by username or email..." value="{{ search_query or '' }}">
+        <button type="submit" class="btn-solid-white" style="padding: 9px 18px; white-space: nowrap;">Search</button>
+        {% if search_query %}
+            <a href="/admin/users" class="btn-glass" style="padding: 9px 14px;">Clear</a>
+        {% endif %}
+    </form>
+
+    <!-- Users Table -->
+    <div class="glass-card" style="overflow-x: auto; padding: 0;">
+        <table class="table-dark">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Wallet Balance</th>
+                    <th>Servers</th>
+                    <th style="text-align: right;">Administrative Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                    <tr>
+                        <td style="color: var(--text-dim); font-family: monospace;">#{{ u.id }}</td>
+                        <td><strong style="color: #fff;">{{ u.username }}</strong></td>
+                        <td style="color: var(--text-muted);">{{ u.email }}</td>
+                        <td><span class="status-badge status-{{ 'online' if u.role == 'admin' else 'stopped' }}">{{ u.role }}</span></td>
+                        <td><span class="status-badge status-{{ 'online' if u.status == 'active' else 'crashed' }}">{{ u.status }}</span></td>
+                        <td style="font-family: monospace; font-weight: 600; color: var(--accent-green);">₹{{ "%.2f"|format(u.wallet_balance) }}</td>
+                        <td>{{ u.server_count }} active</td>
+                        <td style="text-align: right; white-space: nowrap;">
+                            <button class="btn-glass" style="padding: 4px 8px; font-size: 11.5px; color: #4ade80;" onclick="openWalletModal({{ u.id }}, '{{ u.username }}', {{ u.wallet_balance }})">± Balance</button>
+                            <button class="btn-glass" style="padding: 4px 8px; font-size: 11.5px; color: #38bdf8;" onclick="openServerModal({{ u.id }}, '{{ u.username }}')">+ Add Server</button>
+                            <button class="btn-glass" style="padding: 4px 8px; font-size: 11.5px; color: #fbbf24;" onclick="openGrantModal({{ u.id }}, '{{ u.username }}')">+ Grant Plan</button>
+                            {% if u.id != current_user.id %}
+                                <form method="POST" action="/admin/users/{{ u.id }}/toggle-status" style="display: inline-block; margin: 0;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-danger" style="padding: 4px 8px; font-size: 11.5px;">
+                                        {{ 'Suspend' if u.status == 'active' else 'Activate' }}
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Adjust Wallet -->
+<div id="wallet-modal" class="modal-backdrop">
+    <div class="modal-content">
+        <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 16px;">Adjust User Wallet (<span id="wallet-modal-username"></span>)</h3>
+        <form method="POST" action="/admin/users/adjust-wallet" style="display: flex; flex-direction: column; gap: 14px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="user_id" id="wallet-modal-uid">
+
+            <div>
+                <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Action</label>
+                <select name="action" class="input-dark">
+                    <option value="add">Add Funds (+)</option>
+                    <option value="deduct">Deduct Funds (-)</option>
+                </select>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Amount in INR (₹)</label>
+                <input type="number" name="amount" class="input-dark font-mono" placeholder="500" min="1" step="0.01" required>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Audit Reason</label>
+                <input type="text" name="reason" class="input-dark" placeholder="e.g. Promotional credit or refund" required>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                <button type="button" class="btn-glass" onclick="document.getElementById('wallet-modal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn-solid-white">Apply Balance Change</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Grant Subscription -->
+<div id="grant-modal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 600px;">
+        <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 16px;">Grant Hosting Subscription (<span id="grant-modal-username"></span>)</h3>
+        <form method="POST" action="/admin/users/grant-subscription" style="display: flex; flex-direction: column; gap: 14px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="user_id" id="grant-modal-uid">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                <div>
+                    <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Plan Tier</label>
+                    <select name="plan_id" class="input-dark" required>
+                        {% for p in plans %}
+                            <option value="{{ p.id }}">{{ p.name }} (₹{{ p.price_inr }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Duration (Days)</label>
+                    <input type="number" name="days" class="input-dark" value="30" min="1" max="3650" required>
+                </div>
+            </div>
+
+            <div style="font-size: 13px; font-weight: 600; color: #fbbf24; margin-top: 6px;">Optional Custom Resource Overrides:</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                <div>
+                    <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Custom RAM (MB)</label>
+                    <input type="number" name="custom_ram" class="input-dark" placeholder="Leave empty for plan default">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Custom Storage (MB)</label>
+                    <input type="number" name="custom_storage" class="input-dark" placeholder="Leave empty for plan default">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                <button type="button" class="btn-glass" onclick="document.getElementById('grant-modal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn-solid-white">Grant Subscription</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Create & Assign Server to User -->
+<div id="server-modal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 580px;">
+        <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 6px;">Create Server for User</h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin: 0 0 16px;">Directly provision an isolated server instance for <strong id="server-modal-username" style="color: #38bdf8;"></strong>.</p>
+        
+        <form method="POST" action="/admin/users/create-server" style="display: flex; flex-direction: column; gap: 14px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="user_id" id="server-modal-uid">
+
+            <div>
+                <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Server Instance Name</label>
+                <input type="text" name="name" id="server-modal-name" class="input-dark" placeholder="e.g. Production API / Telegram Bot" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                <div>
+                    <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Plan Tier (Resources)</label>
+                    <select name="plan_id" class="input-dark">
+                        {% for p in plans %}
+                            <option value="{{ p.id }}">{{ p.name }} ({{ p.ram_mb }}MB RAM, {{ p.cpu_cores }} CPU)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Entry Point File</label>
+                    <input type="text" name="entry_file" class="input-dark font-mono" value="app.py" required>
+                </div>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 6px;">Custom Startup Command (Optional)</label>
+                <input type="text" name="startup_command" class="input-dark font-mono" placeholder="Leave empty for default: python3 {entry_file}">
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                <input type="checkbox" name="auto_restart" value="1" id="admin-auto-restart" checked style="accent-color: #38bdf8;">
+                <label for="admin-auto-restart" style="font-size: 13px; color: #d4d4d8; cursor: pointer;">Enable process auto-restart on unexpected crash</label>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
+                <button type="button" class="btn-glass" onclick="document.getElementById('server-modal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn-solid-white">Create & Assign Server</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openWalletModal(uid, username, balance) {
+        document.getElementById('wallet-modal-uid').value = uid;
+        document.getElementById('wallet-modal-username').textContent = `${username} (Bal: ₹${balance.toFixed(2)})`;
+        document.getElementById('wallet-modal').style.display = 'flex';
+    }
+    function openGrantModal(uid, username) {
+        document.getElementById('grant-modal-uid').value = uid;
+        document.getElementById('grant-modal-username').textContent = username;
+        document.getElementById('grant-modal').style.display = 'flex';
+    }
+    function openServerModal(uid, username) {
+        document.getElementById('server-modal-uid').value = uid;
+        document.getElementById('server-modal-username').textContent = username;
+        document.getElementById('server-modal-name').value = `${username}-app`;
+        document.getElementById('server-modal').style.display = 'flex';
+    }
+</script>
+{% endblock %}

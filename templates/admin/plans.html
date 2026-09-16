@@ -1,0 +1,138 @@
+{% extends "layout.html" %}
+
+{% block title %}Plan Management | Admin Panel{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="padding: 40px 24px;">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 28px;">
+        <div>
+            <h1 style="font-size: 26px; font-weight: 700; margin: 0 0 4px;">Hosting Tier & Pricing Management (INR)</h1>
+            <p style="color: var(--text-muted); font-size: 14px; margin: 0;">Configure subscription pricing in Indian Rupees (₹), RAM limits, CPU quotas, and server slot capacities.</p>
+        </div>
+        <button onclick="openCreatePlanModal()" class="btn-solid-white">+ Create New Plan</button>
+    </div>
+
+    <!-- Plans Table -->
+    <div class="glass-card" style="overflow-x: auto; padding: 0;">
+        <table class="table-dark">
+            <thead>
+                <tr>
+                    <th>Plan Name</th>
+                    <th>Price (INR)</th>
+                    <th>Duration</th>
+                    <th>RAM Limit</th>
+                    <th>CPU Cores</th>
+                    <th>Storage</th>
+                    <th>Bandwidth</th>
+                    <th>Max Servers</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in plans %}
+                    <tr>
+                        <td><strong style="color: #fff;">{{ p.name }}</strong></td>
+                        <td style="font-family: monospace; font-weight: 600; color: var(--accent-green);">₹{{ "%.2f"|format(p.price_inr) }}</td>
+                        <td>{{ p.billing_days }} days</td>
+                        <td>{{ p.ram_mb }} MB</td>
+                        <td>{{ p.cpu_cores }} Core(s)</td>
+                        <td>{{ p.storage_mb }} MB</td>
+                        <td>{{ "%.0f"|format(p.bandwidth_mb / 1024) }} GB</td>
+                        <td style="color: #38bdf8; font-weight: 600;">{{ p.max_servers }}</td>
+                        <td style="text-align: right;">
+                            <button class="btn-glass" style="padding: 4px 8px; font-size: 11.5px;" onclick='openEditPlanModal({{ p|tojson }})'>Edit</button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Create / Edit Plan -->
+<div id="plan-modal" class="modal-backdrop">
+    <div class="modal-content" style="max-width: 600px;">
+        <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 16px;" id="plan-modal-title">Create Hosting Plan</h3>
+        <form method="POST" action="/admin/plans/save" style="display: flex; flex-direction: column; gap: 14px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="plan_id" id="plan-modal-id">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                <div>
+                    <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 4px;">Plan Name</label>
+                    <input type="text" name="name" id="plan-name" class="input-dark" placeholder="e.g. Pro Developer" required>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 4px;">Price in INR (₹)</label>
+                    <input type="number" name="price_inr" id="plan-price" class="input-dark font-mono" placeholder="299" min="0" step="1" required>
+                </div>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 13px; color: #d4d4d8; margin-bottom: 4px;">Description</label>
+                <input type="text" name="description" id="plan-desc" class="input-dark" placeholder="Short summary of this tier" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                <div>
+                    <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">RAM (MB)</label>
+                    <input type="number" name="ram_mb" id="plan-ram" class="input-dark" value="512" required>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">CPU Cores</label>
+                    <input type="number" name="cpu_cores" id="plan-cpu" class="input-dark font-mono" value="1.0" min="0.1" step="any" required>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Storage (MB)</label>
+                    <input type="number" name="storage_mb" id="plan-storage" class="input-dark" value="2048" required>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                <div>
+                    <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Bandwidth (MB)</label>
+                    <input type="number" name="bandwidth_mb" id="plan-bandwidth" class="input-dark" value="20480" required>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Max Servers</label>
+                    <input type="number" name="max_servers" id="plan-max-servers" class="input-dark" value="1" required>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Duration (Days)</label>
+                    <input type="number" name="billing_days" id="plan-days" class="input-dark" value="30" required>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                <button type="button" class="btn-glass" onclick="document.getElementById('plan-modal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn-solid-white">Save Plan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openCreatePlanModal() {
+        document.getElementById('plan-modal-title').textContent = 'Create Hosting Plan';
+        document.getElementById('plan-modal-id').value = '';
+        document.getElementById('plan-name').value = '';
+        document.getElementById('plan-price').value = '199';
+        document.getElementById('plan-desc').value = '';
+        document.getElementById('plan-modal').style.display = 'flex';
+    }
+    function openEditPlanModal(plan) {
+        document.getElementById('plan-modal-title').textContent = `Edit Plan: ${plan.name}`;
+        document.getElementById('plan-modal-id').value = plan.id;
+        document.getElementById('plan-name').value = plan.name;
+        document.getElementById('plan-price').value = plan.price_inr;
+        document.getElementById('plan-desc').value = plan.description;
+        document.getElementById('plan-ram').value = plan.ram_mb;
+        document.getElementById('plan-cpu').value = plan.cpu_cores;
+        document.getElementById('plan-storage').value = plan.storage_mb;
+        document.getElementById('plan-bandwidth').value = plan.bandwidth_mb;
+        document.getElementById('plan-max-servers').value = plan.max_servers;
+        document.getElementById('plan-days').value = plan.billing_days;
+        document.getElementById('plan-modal').style.display = 'flex';
+    }
+</script>
+{% endblock %}

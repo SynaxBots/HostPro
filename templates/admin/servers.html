@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+
+{% block title %}Global Server Control | Admin Panel{% endblock %}
+
+{% block content %}
+<div class="layout-container" style="padding: 40px 24px;">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 28px;">
+        <div>
+            <h1 style="font-size: 26px; font-weight: 700; margin: 0 0 4px;">Global Server Registry ({{ servers|length }})</h1>
+            <p style="color: var(--text-muted); font-size: 14px; margin: 0;">Comprehensive control over all user-hosted Python processes across the cluster.</p>
+        </div>
+        <a href="/admin" class="btn-glass">← Back to Telemetry</a>
+    </div>
+
+    <div class="glass-card" style="overflow-x: auto; padding: 0;">
+        <table class="table-dark">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Owner</th>
+                    <th>Entry File</th>
+                    <th>Port</th>
+                    <th>PID</th>
+                    <th>Status</th>
+                    <th>Plan</th>
+                    <th style="text-align: right;">Master Controls</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if servers %}
+                    {% for s in servers %}
+                        <tr>
+                            <td style="color: var(--text-dim); font-family: monospace;">#{{ s.id }}</td>
+                            <td><strong style="color: #fff;">{{ s.name }}</strong></td>
+                            <td style="color: #38bdf8;">{{ s.username }}</td>
+                            <td style="font-family: monospace; font-size: 12.5px; color: #a1a1aa;">{{ s.entry_file }}</td>
+                            <td style="font-family: monospace; font-weight: 600; color: #38bdf8;">:{{ s.assigned_port }}</td>
+                            <td style="font-family: monospace; color: {% if s.pid %}#4ade80{% else %}#9ca3af{% endif %};">{{ s.pid or 'N/A' }}</td>
+                            <td><span class="status-badge status-{{ s.status }}">{{ s.status }}</span></td>
+                            <td style="color: var(--text-muted);">{{ s.plan_name or 'Custom/Admin' }}</td>
+                            <td style="text-align: right; white-space: nowrap;">
+                                <a href="/server/{{ s.id }}" class="btn-glass" style="padding: 4px 8px; font-size: 11.5px;">Manage</a>
+                                {% if s.status == 'running' %}
+                                    <form method="POST" action="/admin/servers/{{ s.id }}/stop" style="display: inline-block; margin: 0;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn-danger" style="padding: 4px 8px; font-size: 11.5px;">Stop</button>
+                                    </form>
+                                {% else %}
+                                    <form method="POST" action="/admin/servers/{{ s.id }}/start" style="display: inline-block; margin: 0;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn-solid-white" style="padding: 4px 8px; font-size: 11.5px;">Start</button>
+                                    </form>
+                                {% endif %}
+                                <form method="POST" action="/admin/servers/{{ s.id }}/delete" onsubmit="return confirm('Permanently delete this server and its data?');" style="display: inline-block; margin: 0;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-danger" style="padding: 4px 8px; font-size: 11.5px;">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 24px;">No servers found.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
